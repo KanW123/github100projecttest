@@ -1,0 +1,15 @@
+{
+  "api": {
+    "endpoint": "https://api.nanobanana.pro/v1/generate",
+    "timeout": 60000
+  },
+  "defaults": {
+    "size": "1024x1024",
+    "quality": "high",
+    "format": "png"
+  },
+  "paths": {
+    "generated": "./generated",
+    "processed": "./processed"
+  }
+}

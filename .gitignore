@@ -1,0 +1,13 @@
+# Environment variables
+ImageGenerator/.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Dependencies
+node_modules/
