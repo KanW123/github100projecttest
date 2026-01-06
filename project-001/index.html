@@ -2,17 +2,34 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project 001</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Sky Fighter - Project 001</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <a href="../index.html">← Back to Projects</a>
-        <h1>Project 001</h1>
+        <h1>Sky Fighter</h1>
     </header>
     <main>
-        <p>このプロジェクトはまだ未開発です。</p>
+        <div id="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div id="ui">
+                <div id="score">SCORE: 0</div>
+                <div id="lives">LIVES: 3</div>
+            </div>
+            <div id="start-screen" class="overlay">
+                <h2>Sky Fighter</h2>
+                <p>PC: Arrow keys to move, Space to shoot</p>
+                <p>Mobile: Touch left/right to move, Tap center to shoot</p>
+                <button id="startBtn">START GAME</button>
+            </div>
+            <div id="game-over" class="overlay hidden">
+                <h2>GAME OVER</h2>
+                <p>Final Score: <span id="finalScore">0</span></p>
+                <button id="restartBtn">PLAY AGAIN</button>
+            </div>
+        </div>
     </main>
     <script src="main.js"></script>
 </body>
