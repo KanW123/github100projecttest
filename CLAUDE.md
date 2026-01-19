@@ -13,6 +13,7 @@ pwd && whoami && echo $GITHUB_ACTIONS
 | 環境 | 判別結果 | APIキーの場所 |
 |------|----------|---------------|
 | **ローカル (Mac)** | `/Users/kanwatanabe/...`, `GITHUB_ACTIONS`が空 | `ImageGenerator/.env` |
+| **Claude Code Web** | `/home/user/...`, `gh`コマンドなし | GitHub Token経由 |
 | **GitHub Actions** | `/home/runner/...`, `GITHUB_ACTIONS=true` | `${{ secrets.XXX }}` |
 
 ### 環境別の注意点
@@ -21,6 +22,13 @@ pwd && whoami && echo $GITHUB_ACTIONS
 - APIキー読み込み: `source ImageGenerator/.env`
 - 直接curlでAPI叩ける
 - ファイル保存先: `~/Downloads/` など自由
+
+#### Claude Code Web環境
+- `gh`コマンドは**使えない**（インストールされていない）
+- GitHub Secretsには直接アクセス不可
+- **GitHub Token (PAT)** があれば、curlでワークフローをトリガー可能
+- 生成された画像は `git pull` で取得
+- 画像ファイルはReadツールで表示可能（ただし環境による）
 
 #### GitHub Actions環境
 - APIキー読み込み: ワークフローで `env:` に設定
@@ -36,38 +44,70 @@ pwd && whoami && echo $GITHUB_ACTIONS
 
 ## 素材生成（画像・動画）
 
-### 🚀 Claude Code Web / モバイルから生成する場合
+### 🚀 Claude Code Web から生成する場合
 
-GitHub Actionsワークフローを使って生成。リポジトリに自動保存される。
+**重要**: Claude Code Web環境では `gh` コマンドが使えない。代わりに **curl + GitHub Token** を使う。
 
-#### 画像生成
+#### 前提: GitHub Token (PAT) の準備
+
+1. GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)**
+2. "Generate new token (classic)" をクリック
+3. スコープで以下にチェック:
+   - ✅ `repo` (Full control)
+   - ✅ `workflow` (Update GitHub Action workflows)
+4. トークンをコピーして、チャットで渡す
+
+#### 画像生成 (curl版)
 ```bash
-gh workflow run "Generate Image" \
-  -f prompt="プロンプトをここに" \
-  -f provider="openai"
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-image.yml/dispatches \
+  -d '{"ref":"main","inputs":{"prompt":"プロンプトをここに","provider":"openai"}}'
 ```
 
-#### 動画生成 (SORA)
+#### 動画生成 (curl版)
 ```bash
-gh workflow run "Generate Video (SORA)" \
-  -f prompt="プロンプトをここに" \
-  -f size="1280x720" \
-  -f model="sora-2"
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-video.yml/dispatches \
+  -d '{"ref":"main","inputs":{"prompt":"プロンプトをここに"}}'
 ```
 
-#### 実行状況確認
+#### 実行状況確認 (curl版)
 ```bash
-# 画像
-gh run list --workflow="Generate Image" --limit 1
-
-# 動画
-gh run list --workflow="Generate Video (SORA)" --limit 1
+curl -s -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  "https://api.github.com/repos/KanW123/github100projecttest/actions/runs?per_page=1" | \
+  grep -E '"status"|"conclusion"'
 ```
 
 #### 生成完了後
 ```bash
-git pull  # 生成されたファイルを取得
+git pull origin main  # 生成されたファイルを取得
 ls ImageGenerator/generated/$(date +%Y-%m-%d)/  # 確認
+```
+
+#### 画像の確認方法
+- **この環境で見る**: Claudeに「画像を表示して」と頼む（Readツールで画像表示可能）
+- **GitHub で見る**: リポジトリの画像ファイルをブラウザで開く
+
+---
+
+### ローカル / gh コマンドが使える環境から生成する場合
+
+```bash
+# 画像生成
+gh workflow run "Generate Image" \
+  -f prompt="プロンプトをここに" \
+  -f provider="openai"
+
+# 動画生成
+gh workflow run "Generate Video (SORA)" \
+  -f prompt="プロンプトをここに"
+
+# 実行状況確認
+gh run list --workflow="Generate Image" --limit 1
 ```
 
 ### ローカルから直接API呼び出しする場合
