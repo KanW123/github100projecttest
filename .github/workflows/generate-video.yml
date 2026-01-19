@@ -1,0 +1,129 @@
+name: Generate Video (SORA)
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: '動画生成プロンプト'
+        required: true
+        default: 'A robot walking in a cyberpunk city'
+      size:
+        description: '解像度'
+        required: true
+        default: '1280x720'
+        type: choice
+        options:
+          - 1280x720
+          - 720x1280
+          - 1792x1024
+          - 1024x1792
+      model:
+        description: 'モデル'
+        required: true
+        default: 'sora-2'
+        type: choice
+        options:
+          - sora-2
+          - sora-2-pro
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate video with SORA
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "=== Starting SORA video generation ==="
+          echo "Prompt: ${{ inputs.prompt }}"
+          echo "Size: ${{ inputs.size }}"
+          echo "Model: ${{ inputs.model }}"
+
+          # 1. 動画生成リクエスト
+          echo "Sending generation request..."
+          RESPONSE=$(curl -s -X POST "https://api.openai.com/v1/videos" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -F "model=${{ inputs.model }}" \
+            -F "prompt=${{ inputs.prompt }}" \
+            -F "size=${{ inputs.size }}")
+
+          echo "Response: $RESPONSE"
+
+          VIDEO_ID=$(echo "$RESPONSE" | jq -r '.id')
+          if [ -z "$VIDEO_ID" ] || [ "$VIDEO_ID" = "null" ]; then
+            echo "Error: Failed to get video ID"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+          echo "Video ID: $VIDEO_ID"
+
+          # 2. ステータス監視（最大10分）
+          echo "Waiting for video generation..."
+          for i in {1..60}; do
+            STATUS_RESPONSE=$(curl -s "https://api.openai.com/v1/videos/$VIDEO_ID" \
+              -H "Authorization: Bearer $OPENAI_API_KEY")
+
+            STATUS=$(echo "$STATUS_RESPONSE" | jq -r '.status')
+            PROGRESS=$(echo "$STATUS_RESPONSE" | jq -r '.progress')
+
+            echo "[$i/60] Status: $STATUS, Progress: $PROGRESS%"
+
+            if [ "$STATUS" = "completed" ]; then
+              echo "Video generation completed!"
+              break
+            elif [ "$STATUS" = "failed" ]; then
+              echo "Video generation failed!"
+              echo "$STATUS_RESPONSE"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          if [ "$STATUS" != "completed" ]; then
+            echo "Timeout waiting for video generation"
+            exit 1
+          fi
+
+          # 3. 動画ダウンロード
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          mkdir -p ImageGenerator/generated/$(date +%Y-%m-%d)
+          OUTPUT_PATH="ImageGenerator/generated/$(date +%Y-%m-%d)/video_${TIMESTAMP}.mp4"
+
+          echo "Downloading video to $OUTPUT_PATH..."
+          curl -s "https://api.openai.com/v1/videos/$VIDEO_ID/content" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -o "$OUTPUT_PATH"
+
+          FILE_SIZE=$(ls -lh "$OUTPUT_PATH" | awk '{print $5}')
+          echo "Downloaded: $OUTPUT_PATH ($FILE_SIZE)"
+
+          # 4. メタデータ保存
+          cat > "${OUTPUT_PATH%.mp4}_meta.json" << EOF
+          {
+            "prompt": "${{ inputs.prompt }}",
+            "provider": "openai",
+            "model": "${{ inputs.model }}",
+            "type": "video",
+            "size": "${{ inputs.size }}",
+            "video_id": "$VIDEO_ID",
+            "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          echo "OUTPUT_PATH=$OUTPUT_PATH" >> $GITHUB_ENV
+
+      - name: Commit and push
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add ImageGenerator/generated/
+          git commit -m "Generate video: ${{ inputs.prompt }}" || echo "No changes to commit"
+          git push

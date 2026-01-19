@@ -257,8 +257,57 @@ cd ImageGenerator
 source .env
 ```
 
-### GitHub Actions
-GitHub Secretsに登録済み（リポジトリ設定から確認可能）
+### GitHub Actions ワークフロー
+
+**Claude Code Web / モバイルから使う場合はこちら**
+
+#### 利用可能なワークフロー
+| ワークフロー | 用途 | 実行時間目安 |
+|--------------|------|--------------|
+| `Generate Image` | 画像生成 | 〜30秒 |
+| `Generate Video (SORA)` | 動画生成 | 1〜5分 |
+
+#### 画像生成
+```bash
+gh workflow run "Generate Image" \
+  -f prompt="A cute robot in pixel art style" \
+  -f provider="openai"
+```
+
+**パラメータ:**
+- `prompt` (必須): 画像生成プロンプト
+- `provider`: `openai` (デフォルト) / `gemini`
+
+#### 動画生成 (SORA)
+```bash
+gh workflow run "Generate Video (SORA)" \
+  -f prompt="A robot walking in cyberpunk city" \
+  -f size="1280x720" \
+  -f model="sora-2"
+```
+
+**パラメータ:**
+- `prompt` (必須): 動画生成プロンプト
+- `size`: `1280x720` / `720x1280` / `1792x1024` / `1024x1792`
+- `model`: `sora-2` (高速) / `sora-2-pro` (高品質)
+
+#### 実行状況確認
+```bash
+# 最新の実行状況
+gh run list --workflow="Generate Image" --limit 1
+gh run list --workflow="Generate Video (SORA)" --limit 1
+
+# 詳細ログ
+gh run view <run_id> --log
+```
+
+#### 生成物の取得
+```bash
+git pull
+ls ImageGenerator/generated/$(date +%Y-%m-%d)/
+```
+
+生成されたファイルは自動的にリポジトリにコミットされる。
 
 ---
 

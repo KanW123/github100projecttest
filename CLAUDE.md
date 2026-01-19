@@ -35,6 +35,42 @@ pwd && whoami && echo $GITHUB_ACTIONS
 ---
 
 ## 素材生成（画像・動画）
+
+### 🚀 Claude Code Web / モバイルから生成する場合
+
+GitHub Actionsワークフローを使って生成。リポジトリに自動保存される。
+
+#### 画像生成
+```bash
+gh workflow run "Generate Image" \
+  -f prompt="プロンプトをここに" \
+  -f provider="openai"
+```
+
+#### 動画生成 (SORA)
+```bash
+gh workflow run "Generate Video (SORA)" \
+  -f prompt="プロンプトをここに" \
+  -f size="1280x720" \
+  -f model="sora-2"
+```
+
+#### 実行状況確認
+```bash
+# 画像
+gh run list --workflow="Generate Image" --limit 1
+
+# 動画
+gh run list --workflow="Generate Video (SORA)" --limit 1
+```
+
+#### 生成完了後
+```bash
+git pull  # 生成されたファイルを取得
+ls ImageGenerator/generated/$(date +%Y-%m-%d)/  # 確認
+```
+
+### ローカルから直接API呼び出しする場合
 詳細なAPIドキュメントは以下を参照:
 → **[ImageGenerator/GENERATION_GUIDE.md](./ImageGenerator/GENERATION_GUIDE.md)**
 
