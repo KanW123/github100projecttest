@@ -2,17 +2,32 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project 002</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Tiny Town - Project 002</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <a href="../index.html">← Back to Projects</a>
-        <h1>Project 002</h1>
+        <h1>Tiny Town</h1>
     </header>
     <main>
-        <p>このプロジェクトはまだ未開発です。</p>
+        <div id="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div id="ui">
+                <div id="money">$1000</div>
+            </div>
+            <div id="toolbar">
+                <button class="tool-btn active" data-tool="grass" title="草地">🌿</button>
+                <button class="tool-btn" data-tool="water" title="水">💧</button>
+                <button class="tool-btn" data-tool="road" title="道路">🛤️</button>
+                <button class="tool-btn" data-tool="house" title="家 ($100)">🏠</button>
+                <button class="tool-btn" data-tool="shop" title="店 ($200)">🏪</button>
+                <button class="tool-btn" data-tool="tree" title="木 ($50)">🌳</button>
+                <button class="tool-btn" data-tool="delete" title="削除">❌</button>
+            </div>
+            <div id="info">タップしてタイルを配置</div>
+        </div>
     </main>
     <script src="main.js"></script>
 </body>
