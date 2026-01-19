@@ -1,12 +1,33 @@
 {
-  "api": {
-    "endpoint": "https://api.nanobanana.pro/v1/generate",
-    "timeout": 60000
+  "providers": {
+    "openai": {
+      "endpoint": "https://api.openai.com/v1/images/generations",
+      "model": "gpt-image-1.5",
+      "timeout": 60000
+    },
+    "gemini": {
+      "endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
+      "model": "gemini-2.5-flash-image",
+      "timeout": 60000
+    },
+    "sora": {
+      "endpoint": "https://api.openai.com/v1/videos/generations",
+      "model": "sora-2",
+      "timeout": 120000
+    }
   },
   "defaults": {
+    "provider": "openai",
     "size": "1024x1024",
-    "quality": "high",
+    "quality": "medium",
     "format": "png"
+  },
+  "rules": {
+    "motion_4x4": {
+      "description": "4x4分割モーション画像生成時はGeminiを使用",
+      "provider": "gemini",
+      "reason": "Geminiの高速生成が適している"
+    }
   },
   "paths": {
     "generated": "./generated",

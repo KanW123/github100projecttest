@@ -1,0 +1,97 @@
+name: Generate Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: '画像生成プロンプト'
+        required: true
+        default: 'A cute robot character in pixel art style'
+      provider:
+        description: 'プロバイダー'
+        required: true
+        default: 'openai'
+        type: choice
+        options:
+          - openai
+          - gemini
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate image with OpenAI
+        if: ${{ inputs.provider == 'openai' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          echo "Generating image with OpenAI..."
+          RESPONSE=$(curl -s -X POST "https://api.openai.com/v1/images/generations" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"gpt-image-1.5\",
+              \"prompt\": \"${{ inputs.prompt }}\",
+              \"size\": \"1024x1024\",
+              \"quality\": \"medium\"
+            }")
+
+          echo "Response: $RESPONSE"
+
+          # Extract image URL or base64 data
+          IMAGE_URL=$(echo "$RESPONSE" | jq -r '.data[0].url // empty')
+          IMAGE_B64=$(echo "$RESPONSE" | jq -r '.data[0].b64_json // empty')
+
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          mkdir -p ImageGenerator/generated/$(date +%Y-%m-%d)
+          OUTPUT_PATH="ImageGenerator/generated/$(date +%Y-%m-%d)/img_${TIMESTAMP}.png"
+
+          if [ -n "$IMAGE_URL" ]; then
+            echo "Downloading from URL..."
+            curl -s "$IMAGE_URL" -o "$OUTPUT_PATH"
+          elif [ -n "$IMAGE_B64" ]; then
+            echo "Decoding base64..."
+            echo "$IMAGE_B64" | base64 -d > "$OUTPUT_PATH"
+          else
+            echo "Error: No image data in response"
+            echo "$RESPONSE"
+            exit 1
+          fi
+
+          echo "Image saved to: $OUTPUT_PATH"
+          echo "OUTPUT_PATH=$OUTPUT_PATH" >> $GITHUB_ENV
+
+          # Save metadata
+          cat > "${OUTPUT_PATH%.png}_meta.json" << EOF
+          {
+            "prompt": "${{ inputs.prompt }}",
+            "provider": "openai",
+            "model": "gpt-image-1.5",
+            "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "quality": "medium"
+          }
+          EOF
+
+      - name: Generate image with Gemini
+        if: ${{ inputs.provider == 'gemini' }}
+        env:
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+        run: |
+          echo "Generating image with Gemini..."
+          # Gemini image generation implementation
+          # TODO: Add Gemini API call when needed
+          echo "Gemini generation not yet implemented"
+          exit 1
+
+      - name: Commit and push
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add ImageGenerator/generated/
+          git commit -m "Generate image: ${{ inputs.prompt }}" || echo "No changes to commit"
+          git push
