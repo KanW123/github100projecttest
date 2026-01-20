@@ -92,6 +92,41 @@ ls ImageGenerator/generated/$(date +%Y-%m-%d)/  # 確認
 - **この環境で見る**: Claudeに「画像を表示して」と頼む（Readツールで画像表示可能）
 - **GitHub で見る**: リポジトリの画像ファイルをブラウザで開く
 
+#### ⚠️ トラブルシューティング
+
+**ワークフローが失敗する場合（Commit and push エラー）**
+- 原因: claudeブランチとmainの同時更新による競合
+- 対処: **もう一度トリガーすれば大抵成功する**
+- 確認方法:
+```bash
+# 失敗したか確認
+curl -s -H "Authorization: token YOUR_TOKEN" \
+  "https://api.github.com/repos/KanW123/github100projecttest/actions/runs?per_page=3" | \
+  python3 -c "import json,sys;[print(f\"{r['name']}|{r['conclusion']}\") for r in json.load(sys.stdin)['workflow_runs']]"
+```
+
+**403エラー (Resource not accessible)**
+- 原因: トークンの権限不足
+- 対処: GitHub Token に `repo` と `workflow` スコープが必要
+- Fine-grained PATの場合: Actions → Read and write に設定
+
+#### 🎨 プログラムでPNG画像を作成する場合
+
+Claude Code Web環境でもPillowでPNG生成可能:
+```bash
+pip3 install Pillow --quiet
+```
+
+```python
+from PIL import Image, ImageDraw
+img = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
+draw = ImageDraw.Draw(img)
+# 描画処理...
+img.save('output.png')
+```
+
+用途: タイルのベース枠、シンプルな図形など（AI生成不要なもの）
+
 ---
 
 ### ローカル / gh コマンドが使える環境から生成する場合
