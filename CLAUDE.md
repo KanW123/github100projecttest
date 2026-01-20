@@ -30,6 +30,22 @@ pwd && whoami && echo $GITHUB_ACTIONS
 - 生成された画像は `git pull` で取得
 - 画像ファイルはReadツールで表示可能（ただし環境による）
 
+#### 📱 スマホでの動作確認（Claude Code Web開発時）
+
+**問題**: スマホからはindex.html以外のページにアクセスしづらい（URL入力が面倒）
+
+**解決策**: index.html にテストページへのリンクを追加する
+```html
+<nav>
+    <a href="tile_test.html">🧪 Tile Test</a>
+    <a href="other_test.html">🔬 Other Test</a>
+</nav>
+```
+
+**Cloudflare Pages URL**: `https://github100projecttest.pages.dev/project-XXX/`
+
+これでスマホからもindex.html経由で各テストページにアクセス可能
+
 #### GitHub Actions環境
 - APIキー読み込み: ワークフローで `env:` に設定
 - 生成物はArtifactとしてアップロードするか、リポジトリにコミット
