@@ -114,7 +114,25 @@ function detectSkin(imageData) {
     return mask;
 }
 
-// Sobelエッジ検出
+// 内側の線かどうかを判定（周囲が全て肌色なら内側）
+function isInteriorEdge(x, y, skinMask, width, height, radius = 3) {
+    // 周囲のピクセルをチェック
+    for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+                return false; // 境界外 = 輪郭
+            }
+            if (skinMask[ny * width + nx] === 0) {
+                return false; // 肌色でない = 輪郭近く
+            }
+        }
+    }
+    return true; // 周囲全て肌色 = 内側の線
+}
+
+// Sobelエッジ検出（内側の線のみ）
 function detectEdges(imageData, skinMask) {
     const { data, width, height } = imageData;
     const edges = new Float32Array(width * height);
@@ -136,6 +154,9 @@ function detectEdges(imageData, skinMask) {
 
             // 肌色領域のみ処理
             if (skinMask && skinMask[idx] === 0) continue;
+
+            // 輪郭（外側）は除外 - 周囲が全て肌色の場合のみ処理
+            if (!isInteriorEdge(x, y, skinMask, width, height, 5)) continue;
 
             let gx = 0, gy = 0;
             for (let ky = -1; ky <= 1; ky++) {
