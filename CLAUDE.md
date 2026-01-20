@@ -210,6 +210,8 @@ env:
 | カテゴリ | ファイル |
 |----------|----------|
 | 画像・動画生成 | `ImageGenerator/GENERATION_GUIDE.md` |
+| AI画像生成（Claude Code Web） | `docs/AI_IMAGE_GENERATION.md` |
+| アイソメトリックタイルゲーム | `docs/ISOMETRIC_TILE_GAME.md` |
 | プロジェクト全体 | この `CLAUDE.md` |
 
 新しい知見を得たら、該当ファイルに追記していくこと。
