@@ -173,11 +173,8 @@ function detectEdges(imageData, skinMask) {
         for (let x = 1; x < width - 1; x++) {
             const idx = y * width + x;
 
-            // 肌色領域のみ処理
+            // 収縮済みマスク領域のみ処理（輪郭は既に除外されている）
             if (skinMask && skinMask[idx] === 0) continue;
-
-            // 輪郭（外側）は除外 - 周囲が全て肌色の場合のみ処理
-            if (!isInteriorEdge(x, y, skinMask, width, height, 5)) continue;
 
             let gx = 0, gy = 0;
             for (let ky = -1; ky <= 1; ky++) {
@@ -442,7 +439,7 @@ async function analyzeImage(imageData, width, height) {
     updateProgress(40);
 
     // マスクを収縮（輪郭から10ピクセル内側だけを対象に）
-    const erodedMask = erodeMask(skinMask, width, height, 10);
+    const erodedMask = erodeMask(skinMask, width, height, 5);
     updateProgress(50);
 
     await new Promise(r => setTimeout(r, 200));
