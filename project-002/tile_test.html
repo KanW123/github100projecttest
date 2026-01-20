@@ -2,23 +2,27 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Tile Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tile Grid Test</title>
     <style>
         body {
-            background: #87ceeb;
+            background: linear-gradient(180deg, #87ceeb 0%, #e0f2fe 100%);
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
         }
+        h2 { color: #333; text-align: center; }
         .grid {
             position: relative;
-            width: 800px;
-            height: 600px;
+            width: 100%;
+            height: 500px;
+            margin: 0 auto;
         }
         .tile {
             position: absolute;
-            width: 200px;
-            height: 200px;
-            background-image: url('../ImageGenerator/generated/2026-01-20/img_20260120_013601.png');
+            width: 150px;
+            height: 150px;
+            background-image: url('grass_tile_transparent.png');
             background-size: contain;
             background-repeat: no-repeat;
         }
@@ -29,18 +33,18 @@
     <div class="grid" id="grid"></div>
     <script>
         const grid = document.getElementById('grid');
-        const tileWidth = 180;
-        const tileHeight = 90;
-        const rows = 4;
-        const cols = 4;
+        const tileWidth = 130;
+        const tileHeight = 65;
+        const rows = 5;
+        const cols = 5;
+        const offsetX = grid.offsetWidth / 2 - 50;
         
         for (let row = 0; row < rows; row++) {
             for (let col = 0; col < cols; col++) {
                 const tile = document.createElement('div');
                 tile.className = 'tile';
-                // Isometric positioning
-                const x = (col - row) * (tileWidth / 2) + 300;
-                const y = (col + row) * (tileHeight / 2) + 50;
+                const x = (col - row) * (tileWidth / 2) + offsetX;
+                const y = (col + row) * (tileHeight / 2) + 20;
                 tile.style.left = x + 'px';
                 tile.style.top = y + 'px';
                 tile.style.zIndex = col + row;
