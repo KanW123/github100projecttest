@@ -132,20 +132,28 @@ function getPalmRegion(landmarks, width, height) {
     };
 }
 
-// 手のひら領域のマスクを作成
+// 手のひら領域のマスクを作成（内側に縮小）
 function createPalmMask(palm, width, height, landmarks) {
     const mask = new Uint8Array(width * height);
 
-    // 手のひらのポリゴンを定義（手首→親指側→指の付け根→小指側→手首）
+    // 手のひらの中心を計算
+    const centerX = (landmarks[0].x + landmarks[9].x) / 2;
+    const centerY = (landmarks[0].y + landmarks[9].y) / 2;
+
+    // ポリゴンを中心に向かって縮小（15%内側に）
+    const shrinkFactor = 0.85;
     const polygonPoints = [
         landmarks[0],  // 手首
         landmarks[1],  // 親指付け根
-        landmarks[2],  // 親指
         landmarks[5],  // 人差し指付け根
         landmarks[9],  // 中指付け根
         landmarks[13], // 薬指付け根
         landmarks[17], // 小指付け根
-    ].map(p => ({ x: Math.floor(p.x * width), y: Math.floor(p.y * height) }));
+    ].map(p => {
+        const newX = centerX + (p.x - centerX) * shrinkFactor;
+        const newY = centerY + (p.y - centerY) * shrinkFactor;
+        return { x: Math.floor(newX * width), y: Math.floor(newY * height) };
+    });
 
     // ポリゴン内部を塗りつぶし
     for (let y = palm.top; y <= palm.bottom; y++) {
@@ -244,7 +252,8 @@ function classifyPalmLines(edges, width, height, mask, palm) {
     // 手のひらの中心線
     const palmCenterX = (thumbBase.x + pinkyBase.x) / 2;
 
-    const threshold = 30;
+    // 閾値を高めに設定（強い線だけを検出）
+    const threshold = 60;
 
     for (let y = palm.top; y <= palm.bottom; y++) {
         for (let x = palm.left; x <= palm.right; x++) {
