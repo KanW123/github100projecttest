@@ -140,8 +140,8 @@ function createPalmMask(palm, width, height, landmarks) {
     const centerX = (landmarks[0].x + landmarks[9].x) / 2;
     const centerY = (landmarks[0].y + landmarks[9].y) / 2;
 
-    // ポリゴンを中心に向かって縮小（15%内側に）
-    const shrinkFactor = 0.85;
+    // ポリゴンを中心に向かって縮小（5%内側に、輪郭ノイズ除去用）
+    const shrinkFactor = 0.95;
     const polygonPoints = [
         landmarks[0],  // 手首
         landmarks[1],  // 親指付け根
@@ -181,10 +181,11 @@ function isPointInPolygon(x, y, polygon) {
     return inside;
 }
 
-// Sobelエッジ検出
+// Sobelエッジ検出 + 細線化（Non-Maximum Suppression）
 function detectEdges(imageData, mask, palm) {
     const { data, width, height } = imageData;
     const edges = new Float32Array(width * height);
+    const directions = new Float32Array(width * height);
 
     // グレースケール変換
     const gray = new Uint8Array(width * height);
@@ -214,15 +215,54 @@ function detectEdges(imageData, mask, palm) {
                 }
             }
             edges[idx] = Math.sqrt(gx * gx + gy * gy);
+            directions[idx] = Math.atan2(gy, gx);
+        }
+    }
+
+    // Non-Maximum Suppression（細線化）
+    const thinned = new Float32Array(width * height);
+    for (let y = palm.top + 2; y < palm.bottom - 2; y++) {
+        for (let x = palm.left + 2; x < palm.right - 2; x++) {
+            const idx = y * width + x;
+            if (edges[idx] === 0) continue;
+
+            const angle = directions[idx];
+            let dx = 0, dy = 0;
+
+            // 勾配方向に沿って隣接ピクセルを取得
+            if (angle >= -Math.PI/8 && angle < Math.PI/8) {
+                dx = 1; dy = 0;
+            } else if (angle >= Math.PI/8 && angle < 3*Math.PI/8) {
+                dx = 1; dy = 1;
+            } else if (angle >= 3*Math.PI/8 || angle < -3*Math.PI/8) {
+                dx = 0; dy = 1;
+            } else {
+                dx = 1; dy = -1;
+            }
+
+            const idx1 = (y + dy) * width + (x + dx);
+            const idx2 = (y - dy) * width + (x - dx);
+
+            // 勾配方向の両隣より大きい場合のみ残す
+            if (edges[idx] >= edges[idx1] && edges[idx] >= edges[idx2]) {
+                thinned[idx] = edges[idx];
+            }
         }
     }
 
     // 正規化
     let max = 0;
-    for (let i = 0; i < edges.length; i++) {
-        if (edges[i] > max) max = edges[i];
+    for (let i = 0; i < thinned.length; i++) {
+        if (thinned[i] > max) max = thinned[i];
     }
     if (max > 0) {
+        for (let i = 0; i < thinned.length; i++) {
+            thinned[i] = (thinned[i] / max) * 255;
+        }
+    }
+
+    return thinned;
+}
         for (let i = 0; i < edges.length; i++) {
             edges[i] = (edges[i] / max) * 255;
         }
