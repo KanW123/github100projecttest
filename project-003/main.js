@@ -1,6 +1,6 @@
 /**
  * 手相占いアプリ - Palm Reading App
- * 肌色検出 + エッジ検出で手相の線を識別
+ * MediaPipe Hands + エッジ検出で手相の線を識別
  */
 
 // DOM要素
@@ -18,6 +18,10 @@ const legend = document.getElementById('palm-lines-legend');
 const cameraSection = document.getElementById('camera-section');
 const analysisSection = document.getElementById('analysis-section');
 const resultSection = document.getElementById('result-section');
+
+// MediaPipe Hands インスタンス
+let hands = null;
+let handsReady = false;
 
 // 手相の線の定義
 const PALM_LINES = {
@@ -51,6 +55,28 @@ const FORTUNES = {
     }
 };
 
+// MediaPipe Hands 初期化
+async function initMediaPipe() {
+    try {
+        hands = new Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+        });
+
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+
+        handsReady = true;
+        console.log('MediaPipe Hands initialized');
+    } catch (err) {
+        console.error('MediaPipe init error:', err);
+        alert('手の認識機能の初期化に失敗しました');
+    }
+}
+
 // カメラ初期化
 async function initCamera() {
     try {
@@ -65,57 +91,90 @@ async function initCamera() {
     }
 }
 
-// RGB → HSV 変換
-function rgbToHsv(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    const d = max - min;
-    let h, s, v = max;
+// 手のランドマークから手のひら領域を計算
+function getPalmRegion(landmarks, width, height) {
+    // ランドマークインデックス:
+    // 0: 手首
+    // 5: 人差し指付け根, 9: 中指付け根, 13: 薬指付け根, 17: 小指付け根
+    // 1: 親指付け根
 
-    s = max === 0 ? 0 : d / max;
+    const wrist = landmarks[0];
+    const indexBase = landmarks[5];
+    const middleBase = landmarks[9];
+    const ringBase = landmarks[13];
+    const pinkyBase = landmarks[17];
+    const thumbBase = landmarks[1];
 
-    if (max === min) {
-        h = 0;
-    } else {
-        switch (max) {
-            case r: h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
-            case g: h = ((b - r) / d + 2) * 60; break;
-            case b: h = ((r - g) / d + 4) * 60; break;
-        }
+    // 手のひらの境界を計算
+    const palmPoints = [wrist, thumbBase, indexBase, middleBase, ringBase, pinkyBase];
+
+    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (const p of palmPoints) {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
     }
-    return { h, s: s * 100, v: v * 100 };
+
+    // ピクセル座標に変換（少し内側にマージン）
+    const margin = 0.02;
+    return {
+        left: Math.floor((minX + margin) * width),
+        right: Math.floor((maxX - margin) * width),
+        top: Math.floor((minY + margin) * height),
+        bottom: Math.floor((maxY - margin) * height),
+        width: Math.floor((maxX - minX - margin * 2) * width),
+        height: Math.floor((maxY - minY - margin * 2) * height),
+        landmarks: landmarks,
+        // 手のひらの中心
+        centerX: Math.floor(middleBase.x * width),
+        centerY: Math.floor((wrist.y + middleBase.y) / 2 * height)
+    };
 }
 
-// 肌色判定
-function isSkinColor(r, g, b) {
-    // RGB条件
-    if (r < 60 || g < 40 || b < 20) return false;
-    if (r <= g || r <= b) return false;
-    if (Math.abs(r - g) < 15) return false;
-
-    // HSV条件
-    const { h, s, v } = rgbToHsv(r, g, b);
-    if (h > 50 || s < 10 || s > 70 || v < 30) return false;
-
-    return true;
-}
-
-// 肌色検出
-function detectSkin(imageData) {
-    const { data, width, height } = imageData;
+// 手のひら領域のマスクを作成
+function createPalmMask(palm, width, height, landmarks) {
     const mask = new Uint8Array(width * height);
 
-    for (let i = 0; i < data.length; i += 4) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        const idx = i / 4;
-        mask[idx] = isSkinColor(r, g, b) ? 255 : 0;
+    // 手のひらのポリゴンを定義（手首→親指側→指の付け根→小指側→手首）
+    const polygonPoints = [
+        landmarks[0],  // 手首
+        landmarks[1],  // 親指付け根
+        landmarks[2],  // 親指
+        landmarks[5],  // 人差し指付け根
+        landmarks[9],  // 中指付け根
+        landmarks[13], // 薬指付け根
+        landmarks[17], // 小指付け根
+    ].map(p => ({ x: Math.floor(p.x * width), y: Math.floor(p.y * height) }));
+
+    // ポリゴン内部を塗りつぶし
+    for (let y = palm.top; y <= palm.bottom; y++) {
+        for (let x = palm.left; x <= palm.right; x++) {
+            if (isPointInPolygon(x, y, polygonPoints)) {
+                mask[y * width + x] = 255;
+            }
+        }
     }
 
     return mask;
 }
 
+// 点がポリゴン内部にあるかチェック
+function isPointInPolygon(x, y, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].x, yi = polygon[i].y;
+        const xj = polygon[j].x, yj = polygon[j].y;
+
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+            inside = !inside;
+        }
+    }
+    return inside;
+}
+
 // Sobelエッジ検出
-function detectEdges(imageData, skinMask) {
+function detectEdges(imageData, mask, palm) {
     const { data, width, height } = imageData;
     const edges = new Float32Array(width * height);
 
@@ -130,12 +189,12 @@ function detectEdges(imageData, skinMask) {
     const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
     const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
 
-    for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
+    for (let y = palm.top + 1; y < palm.bottom - 1; y++) {
+        for (let x = palm.left + 1; x < palm.right - 1; x++) {
             const idx = y * width + x;
 
-            // 収縮済みマスク領域のみ処理（輪郭は既に除外されている）
-            if (skinMask && skinMask[idx] === 0) continue;
+            // マスク領域のみ処理
+            if (mask[idx] === 0) continue;
 
             let gx = 0, gy = 0;
             for (let ky = -1; ky <= 1; ky++) {
@@ -164,78 +223,8 @@ function detectEdges(imageData, skinMask) {
     return edges;
 }
 
-// 手のひら領域を検出（指を除外）
-function detectPalmRegion(skinMask, width, height) {
-    // 各行の肌色ピクセル幅を計算
-    const rowWidths = [];
-    const rowBounds = [];
-
-    for (let y = 0; y < height; y++) {
-        let minX = width, maxX = 0;
-        let count = 0;
-        for (let x = 0; x < width; x++) {
-            if (skinMask[y * width + x] > 0) {
-                minX = Math.min(minX, x);
-                maxX = Math.max(maxX, x);
-                count++;
-            }
-        }
-        rowWidths.push(count > 0 ? maxX - minX : 0);
-        rowBounds.push({ minX, maxX, count });
-    }
-
-    // 最大幅を見つける（手のひらの中心部）
-    let maxWidth = 0;
-    let maxWidthY = 0;
-    for (let y = 0; y < height; y++) {
-        if (rowWidths[y] > maxWidth) {
-            maxWidth = rowWidths[y];
-            maxWidthY = y;
-        }
-    }
-
-    // 手のひらの上端を検出（幅が急激に狭くなる場所 = 指の付け根）
-    let palmTop = 0;
-    const widthThreshold = maxWidth * 0.7;
-    for (let y = maxWidthY; y >= 0; y--) {
-        if (rowWidths[y] < widthThreshold) {
-            palmTop = y;
-            break;
-        }
-    }
-
-    // 手のひらの下端を検出
-    let palmBottom = height - 1;
-    for (let y = maxWidthY; y < height; y++) {
-        if (rowWidths[y] < maxWidth * 0.3) {
-            palmBottom = y;
-            break;
-        }
-    }
-
-    // 手のひら領域の左右境界（palmTop〜palmBottom間で計算）
-    let palmMinX = width, palmMaxX = 0;
-    for (let y = palmTop; y <= palmBottom; y++) {
-        if (rowBounds[y].count > 0) {
-            palmMinX = Math.min(palmMinX, rowBounds[y].minX);
-            palmMaxX = Math.max(palmMaxX, rowBounds[y].maxX);
-        }
-    }
-
-    return {
-        top: palmTop,
-        bottom: palmBottom,
-        left: palmMinX,
-        right: palmMaxX,
-        width: palmMaxX - palmMinX,
-        height: palmBottom - palmTop,
-        centerX: palmMinX + (palmMaxX - palmMinX) / 2,
-        centerY: palmTop + (palmBottom - palmTop) / 2
-    };
-}
-
-// 手相の線を分類
-function classifyPalmLines(edges, width, height, skinMask) {
+// 手相の線を分類（ランドマーク基準）
+function classifyPalmLines(edges, width, height, mask, palm) {
     const lines = {
         lifeLine: [],
         headLine: [],
@@ -243,48 +232,43 @@ function classifyPalmLines(edges, width, height, skinMask) {
         fateLine: []
     };
 
-    // 手のひら領域を検出
-    const palm = detectPalmRegion(skinMask, width, height);
+    const landmarks = palm.landmarks;
 
-    // 手のひらが検出できなかった場合
-    if (palm.width < 50 || palm.height < 50) {
-        console.log('Palm region not detected properly');
-        return lines;
-    }
+    // 重要なランドマーク座標（ピクセル）
+    const wrist = { x: landmarks[0].x * width, y: landmarks[0].y * height };
+    const thumbBase = { x: landmarks[1].x * width, y: landmarks[1].y * height };
+    const indexBase = { x: landmarks[5].x * width, y: landmarks[5].y * height };
+    const middleBase = { x: landmarks[9].x * width, y: landmarks[9].y * height };
+    const pinkyBase = { x: landmarks[17].x * width, y: landmarks[17].y * height };
 
-    console.log('Palm region:', palm);
+    // 手のひらの中心線
+    const palmCenterX = (thumbBase.x + pinkyBase.x) / 2;
 
-    // エッジポイントを手相の線に分類（手のひら領域内のみ）
-    const threshold = 35;
-    const margin = 0.08; // 境界から8%内側だけを対象に
+    const threshold = 30;
 
     for (let y = palm.top; y <= palm.bottom; y++) {
         for (let x = palm.left; x <= palm.right; x++) {
             const idx = y * width + x;
-            if (edges[idx] < threshold || skinMask[idx] === 0) continue;
+            if (edges[idx] < threshold || mask[idx] === 0) continue;
 
-            // 手のひら内での相対位置 (0-1)
-            const relX = (x - palm.left) / palm.width;
-            const relY = (y - palm.top) / palm.height;
+            // 各ランドマークからの相対位置で分類
+            const relY = (y - wrist.y) / (indexBase.y - wrist.y); // 0=手首, 1=指の付け根
+            const relX = (x - thumbBase.x) / (pinkyBase.x - thumbBase.x); // 0=親指側, 1=小指側
 
-            // 境界付近は除外（輪郭のエッジを避ける）
-            if (relX < margin || relX > 1 - margin || relY < margin || relY > 1 - margin) continue;
-
-            // 位置に基づいて分類
-            // 感情線: 手のひら上部 (relY: 0.1-0.35)
-            if (relY > 0.1 && relY < 0.35 && relX > 0.2 && relX < 0.9) {
+            // 感情線: 指の付け根のすぐ下（relY: 0.7-0.9）
+            if (relY > 0.7 && relY < 0.95 && relX > 0.2 && relX < 0.95) {
                 lines.heartLine.push({ x, y, strength: edges[idx] });
             }
-            // 頭脳線: 手のひら中部 (relY: 0.25-0.5)
-            else if (relY > 0.25 && relY < 0.5 && relX > 0.15 && relX < 0.85) {
+            // 頭脳線: 手のひら中央横（relY: 0.5-0.75）
+            else if (relY > 0.5 && relY < 0.75 && relX > 0.1 && relX < 0.9) {
                 lines.headLine.push({ x, y, strength: edges[idx] });
             }
-            // 生命線: 左側カーブ (親指側)
-            else if (relX < 0.45 && relY > 0.2 && relY < 0.85) {
+            // 生命線: 親指側カーブ（relX < 0.4）
+            else if (relX > 0 && relX < 0.4 && relY > 0.3 && relY < 0.95) {
                 lines.lifeLine.push({ x, y, strength: edges[idx] });
             }
             // 運命線: 中央縦線
-            else if (relX > 0.35 && relX < 0.65 && relY > 0.4 && relY < 0.9) {
+            else if (relX > 0.35 && relX < 0.65 && relY > 0.2 && relY < 0.7) {
                 lines.fateLine.push({ x, y, strength: edges[idx] });
             }
         }
@@ -295,15 +279,19 @@ function classifyPalmLines(edges, width, height, skinMask) {
 
 // 手相の強さを評価
 function evaluateLineStrength(points) {
-    if (points.length < 10) return 'weak';
-    if (points.length < 50) return 'medium';
+    if (points.length < 20) return 'weak';
+    if (points.length < 100) return 'medium';
     return 'strong';
 }
 
 // 結果画像を描画
-function drawResult(ctx, imageData, lines, width, height) {
+function drawResult(ctx, imageData, lines, palm, width, height) {
     // 元画像を描画
     ctx.putImageData(imageData, 0, 0);
+
+    // 手のひら領域を薄くハイライト
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(palm.left, palm.top, palm.width, palm.height);
 
     // 各線を色付きで描画
     for (const [lineType, points] of Object.entries(lines)) {
@@ -315,6 +303,16 @@ function drawResult(ctx, imageData, lines, width, height) {
         for (const point of points) {
             ctx.beginPath();
             ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // ランドマークを描画（デバッグ用、小さく）
+    if (palm.landmarks) {
+        ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+        for (const lm of palm.landmarks) {
+            ctx.beginPath();
+            ctx.arc(lm.x * width, lm.y * height, 3, 0, Math.PI * 2);
             ctx.fill();
         }
     }
@@ -388,35 +386,75 @@ function showSection(section) {
     section.classList.add('active');
 }
 
+// MediaPipeで手を検出
+async function detectHand(imageElement) {
+    return new Promise((resolve) => {
+        hands.onResults((results) => {
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                resolve(results.multiHandLandmarks[0]);
+            } else {
+                resolve(null);
+            }
+        });
+
+        hands.send({ image: imageElement });
+    });
+}
+
 // 共通の分析処理
-async function analyzeImage(imageData, width, height) {
-    // 分析画面に切り替え
+async function analyzeImage(canvas, width, height) {
     showSection(analysisSection);
     analysisSection.classList.add('analyzing');
     updateProgress(10);
 
-    // 非同期で処理
-    await new Promise(r => setTimeout(r, 300));
+    const ctx = canvas.getContext('2d');
+    const imageData = ctx.getImageData(0, 0, width, height);
+
+    updateProgress(20);
+
+    // MediaPipeで手を検出
+    if (!handsReady) {
+        alert('手の認識機能を読み込み中です。少々お待ちください。');
+        showSection(cameraSection);
+        return;
+    }
 
     updateProgress(30);
 
-    // 肌色検出
-    const skinMask = detectSkin(imageData);
+    const landmarks = await detectHand(canvas);
+
+    if (!landmarks) {
+        alert('手が検出できませんでした。手のひらをはっきり写してください。');
+        showSection(cameraSection);
+        return;
+    }
+
     updateProgress(50);
 
-    // エッジ検出（肌色領域内のみ）
-    const edges = detectEdges(imageData, skinMask);
+    // 手のひら領域を計算
+    const palm = getPalmRegion(landmarks, width, height);
+    console.log('Palm region:', palm);
+
+    // 手のひらマスクを作成
+    const mask = createPalmMask(palm, width, height, landmarks);
+
     updateProgress(70);
 
-    // 手相の線を分類（手のひら領域内、境界から離れた部分のみ）
-    const lines = classifyPalmLines(edges, width, height, skinMask);
+    // エッジ検出
+    const edges = detectEdges(imageData, mask, palm);
+
+    updateProgress(80);
+
+    // 手相の線を分類
+    const lines = classifyPalmLines(edges, width, height, mask, palm);
+
     updateProgress(90);
 
     // 結果キャンバスに描画
     resultCanvas.width = width;
     resultCanvas.height = height;
     const resultCtx = resultCanvas.getContext('2d');
-    drawResult(resultCtx, imageData, lines, width, height);
+    drawResult(resultCtx, imageData, lines, palm, width, height);
 
     // 凡例生成
     createLegend(lines);
@@ -429,7 +467,6 @@ async function analyzeImage(imageData, width, height) {
 
     await new Promise(r => setTimeout(r, 300));
 
-    // 結果画面に切り替え
     showSection(resultSection);
     analysisSection.classList.remove('analyzing');
 }
@@ -446,14 +483,11 @@ async function captureAndAnalyze() {
 
     photoCanvas.width = width;
     photoCanvas.height = height;
-    overlayCanvas.width = width;
-    overlayCanvas.height = height;
 
     const ctx = photoCanvas.getContext('2d');
     ctx.drawImage(video, 0, 0, width, height);
 
-    const imageData = ctx.getImageData(0, 0, width, height);
-    await analyzeImage(imageData, width, height);
+    await analyzeImage(photoCanvas, width, height);
 }
 
 // 画像ファイルから分析
@@ -464,8 +498,8 @@ async function analyzeFromFile(file) {
     img.onload = async () => {
         URL.revokeObjectURL(url);
 
-        // 画像サイズを制限（処理速度のため）
-        const maxSize = 400;
+        // 画像サイズを制限
+        const maxSize = 640;
         let width = img.width;
         let height = img.height;
 
@@ -477,14 +511,11 @@ async function analyzeFromFile(file) {
 
         photoCanvas.width = width;
         photoCanvas.height = height;
-        overlayCanvas.width = width;
-        overlayCanvas.height = height;
 
         const ctx = photoCanvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
 
-        const imageData = ctx.getImageData(0, 0, width, height);
-        await analyzeImage(imageData, width, height);
+        await analyzeImage(photoCanvas, width, height);
     };
 
     img.onerror = () => {
@@ -507,12 +538,13 @@ fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (file) {
         analyzeFromFile(file);
-        e.target.value = ''; // リセット
+        e.target.value = '';
     }
 });
 retryBtn.addEventListener('click', retry);
 
 // 初期化
-document.addEventListener('DOMContentLoaded', () => {
-    initCamera();
+document.addEventListener('DOMContentLoaded', async () => {
+    await initMediaPipe();
+    await initCamera();
 });
