@@ -6,6 +6,7 @@
 // DOM要素
 const video = document.getElementById('video');
 const captureBtn = document.getElementById('capture-btn');
+const fileInput = document.getElementById('file-input');
 const retryBtn = document.getElementById('retry-btn');
 const photoCanvas = document.getElementById('photo-canvas');
 const overlayCanvas = document.getElementById('overlay-canvas');
@@ -315,20 +316,8 @@ function showSection(section) {
     section.classList.add('active');
 }
 
-// 撮影・分析処理
-async function captureAndAnalyze() {
-    // 撮影
-    const width = video.videoWidth;
-    const height = video.videoHeight;
-
-    photoCanvas.width = width;
-    photoCanvas.height = height;
-    overlayCanvas.width = width;
-    overlayCanvas.height = height;
-
-    const ctx = photoCanvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, width, height);
-
+// 共通の分析処理
+async function analyzeImage(imageData, width, height) {
     // 分析画面に切り替え
     showSection(analysisSection);
     analysisSection.classList.add('analyzing');
@@ -337,7 +326,6 @@ async function captureAndAnalyze() {
     // 非同期で処理
     await new Promise(r => setTimeout(r, 300));
 
-    const imageData = ctx.getImageData(0, 0, width, height);
     updateProgress(30);
 
     // 肌色検出
@@ -378,6 +366,67 @@ async function captureAndAnalyze() {
     analysisSection.classList.remove('analyzing');
 }
 
+// カメラ撮影・分析処理
+async function captureAndAnalyze() {
+    const width = video.videoWidth;
+    const height = video.videoHeight;
+
+    if (!width || !height) {
+        alert('カメラの準備ができていません');
+        return;
+    }
+
+    photoCanvas.width = width;
+    photoCanvas.height = height;
+    overlayCanvas.width = width;
+    overlayCanvas.height = height;
+
+    const ctx = photoCanvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, width, height);
+
+    const imageData = ctx.getImageData(0, 0, width, height);
+    await analyzeImage(imageData, width, height);
+}
+
+// 画像ファイルから分析
+async function analyzeFromFile(file) {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = async () => {
+        URL.revokeObjectURL(url);
+
+        // 画像サイズを制限（処理速度のため）
+        const maxSize = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxSize || height > maxSize) {
+            const ratio = Math.min(maxSize / width, maxSize / height);
+            width = Math.floor(width * ratio);
+            height = Math.floor(height * ratio);
+        }
+
+        photoCanvas.width = width;
+        photoCanvas.height = height;
+        overlayCanvas.width = width;
+        overlayCanvas.height = height;
+
+        const ctx = photoCanvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const imageData = ctx.getImageData(0, 0, width, height);
+        await analyzeImage(imageData, width, height);
+    };
+
+    img.onerror = () => {
+        URL.revokeObjectURL(url);
+        alert('画像の読み込みに失敗しました');
+    };
+
+    img.src = url;
+}
+
 // リトライ
 function retry() {
     updateProgress(0);
@@ -386,6 +435,13 @@ function retry() {
 
 // イベントリスナー
 captureBtn.addEventListener('click', captureAndAnalyze);
+fileInput.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        analyzeFromFile(file);
+        e.target.value = ''; // リセット
+    }
+});
 retryBtn.addEventListener('click', retry);
 
 // 初期化

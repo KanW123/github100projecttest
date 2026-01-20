@@ -22,7 +22,13 @@
                     <div class="hand-guide"></div>
                 </div>
             </div>
-            <button id="capture-btn" class="primary-btn">撮影する</button>
+            <div class="button-group">
+                <button id="capture-btn" class="primary-btn">撮影する</button>
+                <label class="secondary-btn">
+                    画像を選択
+                    <input type="file" id="file-input" accept="image/*" hidden>
+                </label>
+            </div>
         </section>
 
         <!-- 分析画面 -->
