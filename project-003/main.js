@@ -164,6 +164,76 @@ function detectEdges(imageData, skinMask) {
     return edges;
 }
 
+// 手のひら領域を検出（指を除外）
+function detectPalmRegion(skinMask, width, height) {
+    // 各行の肌色ピクセル幅を計算
+    const rowWidths = [];
+    const rowBounds = [];
+
+    for (let y = 0; y < height; y++) {
+        let minX = width, maxX = 0;
+        let count = 0;
+        for (let x = 0; x < width; x++) {
+            if (skinMask[y * width + x] > 0) {
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                count++;
+            }
+        }
+        rowWidths.push(count > 0 ? maxX - minX : 0);
+        rowBounds.push({ minX, maxX, count });
+    }
+
+    // 最大幅を見つける（手のひらの中心部）
+    let maxWidth = 0;
+    let maxWidthY = 0;
+    for (let y = 0; y < height; y++) {
+        if (rowWidths[y] > maxWidth) {
+            maxWidth = rowWidths[y];
+            maxWidthY = y;
+        }
+    }
+
+    // 手のひらの上端を検出（幅が急激に狭くなる場所 = 指の付け根）
+    let palmTop = 0;
+    const widthThreshold = maxWidth * 0.7;
+    for (let y = maxWidthY; y >= 0; y--) {
+        if (rowWidths[y] < widthThreshold) {
+            palmTop = y;
+            break;
+        }
+    }
+
+    // 手のひらの下端を検出
+    let palmBottom = height - 1;
+    for (let y = maxWidthY; y < height; y++) {
+        if (rowWidths[y] < maxWidth * 0.3) {
+            palmBottom = y;
+            break;
+        }
+    }
+
+    // 手のひら領域の左右境界（palmTop〜palmBottom間で計算）
+    let palmMinX = width, palmMaxX = 0;
+    for (let y = palmTop; y <= palmBottom; y++) {
+        if (rowBounds[y].count > 0) {
+            palmMinX = Math.min(palmMinX, rowBounds[y].minX);
+            palmMaxX = Math.max(palmMaxX, rowBounds[y].maxX);
+        }
+    }
+
+    return {
+        top: palmTop,
+        bottom: palmBottom,
+        left: palmMinX,
+        right: palmMaxX,
+        width: palmMaxX - palmMinX,
+        height: palmBottom - palmTop,
+        centerX: palmMinX + (palmMaxX - palmMinX) / 2,
+        centerY: palmTop + (palmBottom - palmTop) / 2
+    };
+}
+
 // 手相の線を分類
 function classifyPalmLines(edges, width, height, skinMask) {
     const lines = {
@@ -173,46 +243,43 @@ function classifyPalmLines(edges, width, height, skinMask) {
         fateLine: []
     };
 
-    // 肌色領域の境界を取得
-    let minX = width, maxX = 0, minY = height, maxY = 0;
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            if (skinMask[y * width + x] > 0) {
-                minX = Math.min(minX, x);
-                maxX = Math.max(maxX, x);
-                minY = Math.min(minY, y);
-                maxY = Math.max(maxY, y);
-            }
-        }
+    // 手のひら領域を検出
+    const palm = detectPalmRegion(skinMask, width, height);
+
+    // 手のひらが検出できなかった場合
+    if (palm.width < 50 || palm.height < 50) {
+        console.log('Palm region not detected properly');
+        return lines;
     }
 
-    const palmWidth = maxX - minX;
-    const palmHeight = maxY - minY;
-    const palmCenterX = minX + palmWidth / 2;
-    const palmCenterY = minY + palmHeight / 2;
+    console.log('Palm region:', palm);
 
-    // エッジポイントを手相の線に分類
-    const threshold = 40;
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
+    // エッジポイントを手相の線に分類（手のひら領域内のみ）
+    const threshold = 35;
+    for (let y = palm.top; y <= palm.bottom; y++) {
+        for (let x = palm.left; x <= palm.right; x++) {
             const idx = y * width + x;
             if (edges[idx] < threshold || skinMask[idx] === 0) continue;
 
-            const relX = (x - minX) / palmWidth;  // 0-1
-            const relY = (y - minY) / palmHeight; // 0-1
+            // 手のひら内での相対位置 (0-1)
+            const relX = (x - palm.left) / palm.width;
+            const relY = (y - palm.top) / palm.height;
 
             // 位置に基づいて分類
-            if (relY < 0.35 && relX > 0.15 && relX < 0.85) {
-                // 上部: 感情線
+            // 感情線: 手のひら上部 (relY: 0.1-0.35)
+            if (relY > 0.1 && relY < 0.35 && relX > 0.2 && relX < 0.9) {
                 lines.heartLine.push({ x, y, strength: edges[idx] });
-            } else if (relY >= 0.35 && relY < 0.55 && relX > 0.1 && relX < 0.85) {
-                // 中部: 頭脳線
+            }
+            // 頭脳線: 手のひら中部 (relY: 0.25-0.5)
+            else if (relY > 0.25 && relY < 0.5 && relX > 0.15 && relX < 0.85) {
                 lines.headLine.push({ x, y, strength: edges[idx] });
-            } else if (relX < 0.4 && relY > 0.25 && relY < 0.9) {
-                // 左側カーブ: 生命線
+            }
+            // 生命線: 左側カーブ (親指側)
+            else if (relX < 0.45 && relY > 0.2 && relY < 0.85) {
                 lines.lifeLine.push({ x, y, strength: edges[idx] });
-            } else if (relX > 0.4 && relX < 0.6 && relY > 0.5) {
-                // 中央縦: 運命線
+            }
+            // 運命線: 中央縦線
+            else if (relX > 0.35 && relX < 0.65 && relY > 0.4 && relY < 0.9) {
                 lines.fateLine.push({ x, y, strength: edges[idx] });
             }
         }
