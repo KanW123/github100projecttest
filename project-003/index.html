@@ -2,18 +2,54 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project 003</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>手相占い - Palm Reading</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <a href="../index.html">← Back to Projects</a>
-        <h1>Project 003</h1>
+        <a href="../index.html" class="back-link">← Back</a>
+        <h1>手相占い</h1>
     </header>
+
     <main>
-        <p>このプロジェクトはまだ未開発です。</p>
+        <!-- 撮影画面 -->
+        <section id="camera-section" class="active">
+            <p class="instruction">手のひらをカメラに向けてください</p>
+            <div class="camera-container">
+                <video id="video" autoplay playsinline></video>
+                <div class="guide-overlay">
+                    <div class="hand-guide"></div>
+                </div>
+            </div>
+            <button id="capture-btn" class="primary-btn">撮影する</button>
+        </section>
+
+        <!-- 分析画面 -->
+        <section id="analysis-section">
+            <p class="instruction">手相を分析中...</p>
+            <div class="image-container">
+                <canvas id="photo-canvas"></canvas>
+                <canvas id="overlay-canvas"></canvas>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </section>
+
+        <!-- 結果画面 -->
+        <section id="result-section">
+            <div class="image-container result-image">
+                <canvas id="result-canvas"></canvas>
+            </div>
+            <div id="palm-lines-legend" class="legend"></div>
+            <div id="fortune-result" class="fortune-card">
+                <!-- 占い結果がここに表示される -->
+            </div>
+            <button id="retry-btn" class="primary-btn">もう一度占う</button>
+        </section>
     </main>
+
     <script src="main.js"></script>
 </body>
 </html>

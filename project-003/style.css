@@ -6,35 +6,223 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    line-height: 1.6;
-    padding: 2rem;
-    max-width: 800px;
-    margin: 0 auto;
-    background: #f5f5f5;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    color: #fff;
 }
 
 header {
-    margin-bottom: 2rem;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(0,0,0,0.3);
 }
 
-header a {
-    color: #666;
+.back-link {
+    color: #a0a0a0;
     text-decoration: none;
-    font-size: 0.9rem;
+    font-size: 14px;
 }
 
-header a:hover {
-    color: #333;
-}
-
-h1 {
-    margin-top: 0.5rem;
-    color: #333;
+header h1 {
+    font-size: 20px;
+    font-weight: 600;
 }
 
 main {
-    background: white;
-    padding: 2rem;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 16px;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+section {
+    display: none;
+}
+
+section.active {
+    display: block;
+}
+
+.instruction {
+    text-align: center;
+    font-size: 16px;
+    margin-bottom: 16px;
+    color: #ccc;
+}
+
+/* カメラコンテナ */
+.camera-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+#video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.guide-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.hand-guide {
+    width: 70%;
+    height: 60%;
+    border: 3px dashed rgba(255,255,255,0.5);
+    border-radius: 20px;
+}
+
+/* 画像コンテナ */
+.image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: #000;
+    border-radius: 16px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+#photo-canvas,
+#overlay-canvas,
+#result-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#overlay-canvas {
+    pointer-events: none;
+}
+
+/* プログレスバー */
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #e94560, #ff6b6b);
+    transition: width 0.3s ease;
+}
+
+/* ボタン */
+.primary-btn {
+    width: 100%;
+    padding: 16px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, #e94560, #ff6b6b);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.primary-btn:active {
+    transform: scale(0.98);
+}
+
+.primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 凡例 */
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+    justify-content: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+}
+
+.legend-color {
+    width: 20px;
+    height: 4px;
+    border-radius: 2px;
+}
+
+/* 占い結果カード */
+.fortune-card {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.fortune-card h2 {
+    font-size: 18px;
+    margin-bottom: 16px;
+    text-align: center;
+    color: #ff6b6b;
+}
+
+.fortune-section {
+    margin-bottom: 16px;
+}
+
+.fortune-section:last-child {
+    margin-bottom: 0;
+}
+
+.fortune-section h3 {
+    font-size: 14px;
+    color: #ffd93d;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fortune-section p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #ddd;
+}
+
+/* 結果画像 */
+.result-image {
+    aspect-ratio: 1/1;
+}
+
+/* アニメーション */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.analyzing .instruction {
+    animation: pulse 1.5s infinite;
 }
