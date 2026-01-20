@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Tile Test</title>
+    <style>
+        body {
+            background: #87ceeb;
+            margin: 0;
+            padding: 20px;
+        }
+        .grid {
+            position: relative;
+            width: 800px;
+            height: 600px;
+        }
+        .tile {
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background-image: url('../ImageGenerator/generated/2026-01-20/img_20260120_013601.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+        }
+    </style>
+</head>
+<body>
+    <h2>Grass Tile Grid Test</h2>
+    <div class="grid" id="grid"></div>
+    <script>
+        const grid = document.getElementById('grid');
+        const tileWidth = 180;
+        const tileHeight = 90;
+        const rows = 4;
+        const cols = 4;
+        
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                // Isometric positioning
+                const x = (col - row) * (tileWidth / 2) + 300;
+                const y = (col + row) * (tileHeight / 2) + 50;
+                tile.style.left = x + 'px';
+                tile.style.top = y + 'px';
+                tile.style.zIndex = col + row;
+                grid.appendChild(tile);
+            }
+        }
+    </script>
+</body>
+</html>
