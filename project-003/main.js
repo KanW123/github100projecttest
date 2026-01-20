@@ -114,46 +114,7 @@ function detectSkin(imageData) {
     return mask;
 }
 
-// マスクを収縮（erosion）- 輪郭から内側に縮める
-function erodeMask(mask, width, height, radius) {
-    const eroded = new Uint8Array(width * height);
-
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const idx = y * width + x;
-
-            // 元のマスクが0ならスキップ
-            if (mask[idx] === 0) {
-                eroded[idx] = 0;
-                continue;
-            }
-
-            // 周囲のピクセルをチェック
-            let allSkin = true;
-            outer:
-            for (let dy = -radius; dy <= radius; dy++) {
-                for (let dx = -radius; dx <= radius; dx++) {
-                    const nx = x + dx;
-                    const ny = y + dy;
-                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
-                        allSkin = false;
-                        break outer;
-                    }
-                    if (mask[ny * width + nx] === 0) {
-                        allSkin = false;
-                        break outer;
-                    }
-                }
-            }
-
-            eroded[idx] = allSkin ? 255 : 0;
-        }
-    }
-
-    return eroded;
-}
-
-// Sobelエッジ検出（内側の線のみ）
+// Sobelエッジ検出
 function detectEdges(imageData, skinMask) {
     const { data, width, height } = imageData;
     const edges = new Float32Array(width * height);
@@ -295,6 +256,8 @@ function classifyPalmLines(edges, width, height, skinMask) {
 
     // エッジポイントを手相の線に分類（手のひら領域内のみ）
     const threshold = 35;
+    const margin = 0.08; // 境界から8%内側だけを対象に
+
     for (let y = palm.top; y <= palm.bottom; y++) {
         for (let x = palm.left; x <= palm.right; x++) {
             const idx = y * width + x;
@@ -303,6 +266,9 @@ function classifyPalmLines(edges, width, height, skinMask) {
             // 手のひら内での相対位置 (0-1)
             const relX = (x - palm.left) / palm.width;
             const relY = (y - palm.top) / palm.height;
+
+            // 境界付近は除外（輪郭のエッジを避ける）
+            if (relX < margin || relX > 1 - margin || relY < margin || relY > 1 - margin) continue;
 
             // 位置に基づいて分類
             // 感情線: 手のひら上部 (relY: 0.1-0.35)
@@ -436,21 +402,13 @@ async function analyzeImage(imageData, width, height) {
 
     // 肌色検出
     const skinMask = detectSkin(imageData);
-    updateProgress(40);
-
-    // マスクを収縮（輪郭から10ピクセル内側だけを対象に）
-    const erodedMask = erodeMask(skinMask, width, height, 5);
     updateProgress(50);
 
-    await new Promise(r => setTimeout(r, 200));
-
-    // エッジ検出（収縮したマスクを使用）
-    const edges = detectEdges(imageData, erodedMask);
+    // エッジ検出（肌色領域内のみ）
+    const edges = detectEdges(imageData, skinMask);
     updateProgress(70);
 
-    await new Promise(r => setTimeout(r, 200));
-
-    // 手相の線を分類（元のマスクで手のひら領域を検出）
+    // 手相の線を分類（手のひら領域内、境界から離れた部分のみ）
     const lines = classifyPalmLines(edges, width, height, skinMask);
     updateProgress(90);
 
@@ -507,7 +465,7 @@ async function analyzeFromFile(file) {
         URL.revokeObjectURL(url);
 
         // 画像サイズを制限（処理速度のため）
-        const maxSize = 800;
+        const maxSize = 400;
         let width = img.width;
         let height = img.height;
 
