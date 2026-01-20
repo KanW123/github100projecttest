@@ -114,22 +114,43 @@ function detectSkin(imageData) {
     return mask;
 }
 
-// 内側の線かどうかを判定（周囲が全て肌色なら内側）
-function isInteriorEdge(x, y, skinMask, width, height, radius = 3) {
-    // 周囲のピクセルをチェック
-    for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
-                return false; // 境界外 = 輪郭
+// マスクを収縮（erosion）- 輪郭から内側に縮める
+function erodeMask(mask, width, height, radius) {
+    const eroded = new Uint8Array(width * height);
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+
+            // 元のマスクが0ならスキップ
+            if (mask[idx] === 0) {
+                eroded[idx] = 0;
+                continue;
             }
-            if (skinMask[ny * width + nx] === 0) {
-                return false; // 肌色でない = 輪郭近く
+
+            // 周囲のピクセルをチェック
+            let allSkin = true;
+            outer:
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    const nx = x + dx;
+                    const ny = y + dy;
+                    if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+                        allSkin = false;
+                        break outer;
+                    }
+                    if (mask[ny * width + nx] === 0) {
+                        allSkin = false;
+                        break outer;
+                    }
+                }
             }
+
+            eroded[idx] = allSkin ? 255 : 0;
         }
     }
-    return true; // 周囲全て肌色 = 内側の線
+
+    return eroded;
 }
 
 // Sobelエッジ検出（内側の線のみ）
@@ -418,17 +439,21 @@ async function analyzeImage(imageData, width, height) {
 
     // 肌色検出
     const skinMask = detectSkin(imageData);
+    updateProgress(40);
+
+    // マスクを収縮（輪郭から10ピクセル内側だけを対象に）
+    const erodedMask = erodeMask(skinMask, width, height, 10);
     updateProgress(50);
 
     await new Promise(r => setTimeout(r, 200));
 
-    // エッジ検出
-    const edges = detectEdges(imageData, skinMask);
+    // エッジ検出（収縮したマスクを使用）
+    const edges = detectEdges(imageData, erodedMask);
     updateProgress(70);
 
     await new Promise(r => setTimeout(r, 200));
 
-    // 手相の線を分類
+    // 手相の線を分類（元のマスクで手のひら領域を検出）
     const lines = classifyPalmLines(edges, width, height, skinMask);
     updateProgress(90);
 
