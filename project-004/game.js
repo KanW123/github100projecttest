@@ -1,9 +1,9 @@
-// P2P Shooting Game - Main Game Logic
+// P2P Fighting Game - Main Game Logic
 
 // ===========================================
 // Configuration
 // ===========================================
-const VERSION = 'v1.2.0';
+const VERSION = 'v2.0.0';
 
 const CONFIG = {
     // Cloudflare Workers Signaling Server
@@ -15,23 +15,62 @@ const CONFIG = {
     CANVAS_HEIGHT: 600,
 
     PLAYER: {
-        WIDTH: 40,
-        HEIGHT: 60,
-        SPEED: 5,
-        JUMP_FORCE: 15,
-        GRAVITY: 0.8,
+        WIDTH: 120,
+        HEIGHT: 180,
+        SPEED: 6,
+        JUMP_FORCE: 18,
+        GRAVITY: 0.9,
         MAX_HP: 100,
     },
 
-    BULLET: {
-        WIDTH: 10,
-        HEIGHT: 4,
-        SPEED: 12,
-        DAMAGE: 10,
-        COOLDOWN: 200, // ms
+    ATTACK: {
+        PUNCH_DAMAGE: 8,
+        KICK_DAMAGE: 12,
+        PUNCH_RANGE: 80,
+        KICK_RANGE: 100,
+        PUNCH_DURATION: 200,  // ms
+        KICK_DURATION: 300,
+        HURT_DURATION: 300,
+        BLOCK_REDUCTION: 0.2, // 80% damage reduction when blocking
     },
 
-    GAME_TIME: 60, // seconds
+    GAME_TIME: 99, // seconds
+};
+
+// ===========================================
+// Sprite Manager
+// ===========================================
+const SpriteManager = {
+    sprites: {},
+    loaded: false,
+
+    async loadAll() {
+        const poses = ['idle', 'punch', 'kick', 'block', 'hurt', 'win'];
+        const basePath = 'assets/characters/';
+
+        const loadPromises = poses.map(pose => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    this.sprites[`char1_${pose}`] = img;
+                    resolve();
+                };
+                img.onerror = () => {
+                    console.warn(`Failed to load: ${pose}`);
+                    resolve(); // Continue even if one fails
+                };
+                img.src = `${basePath}char1_${pose}.png`;
+            });
+        });
+
+        await Promise.all(loadPromises);
+        this.loaded = true;
+        console.log('Sprites loaded:', Object.keys(this.sprites));
+    },
+
+    get(name) {
+        return this.sprites[name] || null;
+    }
 };
 
 // ===========================================
@@ -44,14 +83,21 @@ let gameState = {
     isHost: false,
 
     players: {
-        1: { x: 100, y: 400, vx: 0, vy: 0, hp: 100, facing: 1, grounded: false },
-        2: { x: 600, y: 400, vx: 0, vy: 0, hp: 100, facing: -1, grounded: false },
+        1: {
+            x: 150, y: 300, vx: 0, vy: 0, hp: 100,
+            facing: 1, grounded: false,
+            action: 'idle', actionTime: 0
+        },
+        2: {
+            x: 550, y: 300, vx: 0, vy: 0, hp: 100,
+            facing: -1, grounded: false,
+            action: 'idle', actionTime: 0
+        },
     },
-    bullets: [],
 
     timeLeft: CONFIG.GAME_TIME,
     gameRunning: false,
-    lastShot: 0,
+    lastAttack: 0,
 };
 
 let keys = {};
@@ -74,7 +120,6 @@ function showScreen(screenId) {
 // ===========================================
 function connectToRoom(roomId) {
     if (CONFIG.USE_MOCK) {
-        // Mock mode for testing without server
         console.log('Mock mode: Simulating connection');
         gameState.roomId = roomId;
         gameState.playerId = 1;
@@ -153,7 +198,6 @@ function handleSignalingMessage(data) {
             startGame();
             break;
 
-        // WebRTC signaling
         case 'offer':
             handleOffer(data);
             break;
@@ -164,7 +208,6 @@ function handleSignalingMessage(data) {
             handleIceCandidate(data);
             break;
 
-        // Game state sync (fallback)
         case 'game_state':
             if (data.playerId !== gameState.playerId) {
                 syncRemotePlayer(data);
@@ -211,7 +254,6 @@ async function setupPeerConnection() {
         setupDataChannel();
     };
 
-    // Host creates data channel
     if (gameState.isHost) {
         dataChannel = peerConnection.createDataChannel('game');
         setupDataChannel();
@@ -275,12 +317,8 @@ function handleP2PMessage(data) {
             gameState.players[otherId] = { ...gameState.players[otherId], ...data.state };
             break;
 
-        case 'bullet_fired':
-            gameState.bullets.push(data.bullet);
-            break;
-
-        case 'hit':
-            gameState.players[data.targetId].hp -= CONFIG.BULLET.DAMAGE;
+        case 'attack':
+            handleRemoteAttack(data);
             break;
     }
 }
@@ -289,38 +327,37 @@ function sendP2P(data) {
     if (dataChannel && dataChannel.readyState === 'open') {
         dataChannel.send(JSON.stringify(data));
     } else if (ws && ws.readyState === WebSocket.OPEN) {
-        // Fallback to WebSocket
         ws.send(JSON.stringify({ type: 'game_state', ...data }));
     }
 }
 
-// Sync remote player state from WebSocket fallback
 function syncRemotePlayer(data) {
     const otherId = gameState.playerId === 1 ? 2 : 1;
 
     if (data.type === 'player_state' || data.state) {
         const state = data.state || data;
         gameState.players[otherId] = { ...gameState.players[otherId], ...state };
-    } else if (data.type === 'bullet_fired' && data.bullet) {
-        gameState.bullets.push(data.bullet);
-    } else if (data.type === 'hit') {
-        gameState.players[data.targetId].hp -= CONFIG.BULLET.DAMAGE;
+    } else if (data.type === 'attack') {
+        handleRemoteAttack(data);
     }
 }
 
 // ===========================================
 // Game Logic
 // ===========================================
-function startGame() {
+async function startGame() {
+    // Load sprites first
+    if (!SpriteManager.loaded) {
+        await SpriteManager.loadAll();
+    }
+
     showScreen('game');
     initCanvas();
     resetGameState();
     gameState.gameRunning = true;
 
-    // Start game loop
     requestAnimationFrame(gameLoop);
 
-    // Start timer
     const timerInterval = setInterval(() => {
         if (!gameState.gameRunning) {
             clearInterval(timerInterval);
@@ -337,19 +374,25 @@ function startGame() {
 
 function resetGameState() {
     gameState.players = {
-        1: { x: 100, y: 400, vx: 0, vy: 0, hp: CONFIG.PLAYER.MAX_HP, facing: 1, grounded: false },
-        2: { x: 600, y: 400, vx: 0, vy: 0, hp: CONFIG.PLAYER.MAX_HP, facing: -1, grounded: false },
+        1: {
+            x: 150, y: 300, vx: 0, vy: 0, hp: CONFIG.PLAYER.MAX_HP,
+            facing: 1, grounded: false,
+            action: 'idle', actionTime: 0
+        },
+        2: {
+            x: 550, y: 300, vx: 0, vy: 0, hp: CONFIG.PLAYER.MAX_HP,
+            facing: -1, grounded: false,
+            action: 'idle', actionTime: 0
+        },
     };
-    gameState.bullets = [];
     gameState.timeLeft = CONFIG.GAME_TIME;
-    gameState.lastShot = 0;
+    gameState.lastAttack = 0;
 }
 
 function initCanvas() {
     canvas = document.getElementById('gameCanvas');
     ctx = canvas.getContext('2d');
 
-    // Responsive sizing
     const container = document.getElementById('game');
     const header = document.getElementById('gameHeader');
     const controls = document.getElementById('mobileControls');
@@ -371,7 +414,7 @@ let lastTime = 0;
 function gameLoop(timestamp) {
     if (!gameState.gameRunning) return;
 
-    const dt = Math.min((timestamp - lastTime) / 16.67, 2); // Cap delta time
+    const dt = Math.min((timestamp - lastTime) / 16.67, 2);
     lastTime = timestamp;
 
     update(dt);
@@ -381,30 +424,55 @@ function gameLoop(timestamp) {
 }
 
 function update(dt) {
-    const myPlayer = gameState.players[gameState.playerId || 1];
+    const myId = gameState.playerId || 1;
+    const myPlayer = gameState.players[myId];
+    const now = Date.now();
 
-    // Input handling
-    if (keys['ArrowLeft'] || keys['a']) {
-        myPlayer.vx = -CONFIG.PLAYER.SPEED;
-        myPlayer.facing = -1;
-    } else if (keys['ArrowRight'] || keys['d']) {
-        myPlayer.vx = CONFIG.PLAYER.SPEED;
-        myPlayer.facing = 1;
-    } else {
-        myPlayer.vx = 0;
+    // Check if action is still ongoing
+    const actionElapsed = now - myPlayer.actionTime;
+    const isActing = myPlayer.action !== 'idle' && myPlayer.action !== 'block';
+    const actionDuration = myPlayer.action === 'punch' ? CONFIG.ATTACK.PUNCH_DURATION :
+                          myPlayer.action === 'kick' ? CONFIG.ATTACK.KICK_DURATION :
+                          myPlayer.action === 'hurt' ? CONFIG.ATTACK.HURT_DURATION : 0;
+
+    if (isActing && actionElapsed > actionDuration) {
+        myPlayer.action = 'idle';
     }
 
-    if ((keys['ArrowUp'] || keys['w']) && myPlayer.grounded) {
-        myPlayer.vy = -CONFIG.PLAYER.JUMP_FORCE;
-        myPlayer.grounded = false;
-    }
+    // Input handling (only if not in hurt state)
+    if (myPlayer.action !== 'hurt') {
+        // Movement
+        if (keys['ArrowLeft'] || keys['a']) {
+            myPlayer.vx = -CONFIG.PLAYER.SPEED;
+            myPlayer.facing = -1;
+        } else if (keys['ArrowRight'] || keys['d']) {
+            myPlayer.vx = CONFIG.PLAYER.SPEED;
+            myPlayer.facing = 1;
+        } else {
+            myPlayer.vx = 0;
+        }
 
-    // Shooting (Space or F key)
-    if (keys[' '] || keys['f']) {
-        const now = Date.now();
-        if (now - gameState.lastShot >= CONFIG.BULLET.COOLDOWN) {
-            fireBullet(myPlayer);
-            gameState.lastShot = now;
+        // Jump
+        if ((keys['ArrowUp'] || keys['w']) && myPlayer.grounded) {
+            myPlayer.vy = -CONFIG.PLAYER.JUMP_FORCE;
+            myPlayer.grounded = false;
+        }
+
+        // Block (hold down or S)
+        if (keys['ArrowDown'] || keys['s']) {
+            myPlayer.action = 'block';
+        } else if (myPlayer.action === 'block') {
+            myPlayer.action = 'idle';
+        }
+
+        // Punch (Z or J)
+        if ((keys['z'] || keys['j']) && myPlayer.action === 'idle') {
+            performAttack(myPlayer, 'punch');
+        }
+
+        // Kick (X or K)
+        if ((keys['x'] || keys['k']) && myPlayer.action === 'idle') {
+            performAttack(myPlayer, 'kick');
         }
     }
 
@@ -420,7 +488,7 @@ function update(dt) {
         p.y += p.vy * dt;
 
         // Ground collision
-        const groundY = CONFIG.CANVAS_HEIGHT - 100;
+        const groundY = CONFIG.CANVAS_HEIGHT - 80;
         if (p.y + CONFIG.PLAYER.HEIGHT >= groundY) {
             p.y = groundY - CONFIG.PLAYER.HEIGHT;
             p.vy = 0;
@@ -431,38 +499,6 @@ function update(dt) {
         if (p.x < 0) p.x = 0;
         if (p.x + CONFIG.PLAYER.WIDTH > CONFIG.CANVAS_WIDTH) {
             p.x = CONFIG.CANVAS_WIDTH - CONFIG.PLAYER.WIDTH;
-        }
-    }
-
-    // Update bullets
-    for (let i = gameState.bullets.length - 1; i >= 0; i--) {
-        const b = gameState.bullets[i];
-        b.x += b.vx * dt;
-
-        // Remove if off screen
-        if (b.x < -50 || b.x > CONFIG.CANVAS_WIDTH + 50) {
-            gameState.bullets.splice(i, 1);
-            continue;
-        }
-
-        // Collision with players
-        for (const id in gameState.players) {
-            if (parseInt(id) === b.owner) continue;
-
-            const p = gameState.players[id];
-            if (rectCollision(b, CONFIG.BULLET, p, CONFIG.PLAYER)) {
-                p.hp -= CONFIG.BULLET.DAMAGE;
-                gameState.bullets.splice(i, 1);
-
-                // Send hit notification
-                sendP2P({ type: 'hit', targetId: id });
-
-                // Check for KO
-                if (p.hp <= 0) {
-                    endGame();
-                }
-                break;
-            }
         }
     }
 
@@ -480,76 +516,165 @@ function update(dt) {
             vy: myPlayer.vy,
             facing: myPlayer.facing,
             hp: myPlayer.hp,
+            action: myPlayer.action,
+            actionTime: myPlayer.actionTime,
         }
     });
 }
 
-function fireBullet(player) {
-    const bullet = {
-        x: player.x + (player.facing > 0 ? CONFIG.PLAYER.WIDTH : -CONFIG.BULLET.WIDTH),
-        y: player.y + CONFIG.PLAYER.HEIGHT / 2,
-        vx: CONFIG.BULLET.SPEED * player.facing,
-        owner: gameState.playerId || 1,
-    };
+function performAttack(player, attackType) {
+    const myId = gameState.playerId || 1;
+    const otherId = myId === 1 ? 2 : 1;
+    const opponent = gameState.players[otherId];
 
-    gameState.bullets.push(bullet);
-    sendP2P({ type: 'bullet_fired', bullet });
+    player.action = attackType;
+    player.actionTime = Date.now();
+
+    // Calculate attack range
+    const range = attackType === 'punch' ? CONFIG.ATTACK.PUNCH_RANGE : CONFIG.ATTACK.KICK_RANGE;
+    const damage = attackType === 'punch' ? CONFIG.ATTACK.PUNCH_DAMAGE : CONFIG.ATTACK.KICK_DAMAGE;
+
+    // Check if opponent is in range
+    const playerCenterX = player.x + CONFIG.PLAYER.WIDTH / 2;
+    const opponentCenterX = opponent.x + CONFIG.PLAYER.WIDTH / 2;
+    const distance = Math.abs(playerCenterX - opponentCenterX);
+    const inFront = (player.facing > 0 && opponentCenterX > playerCenterX) ||
+                   (player.facing < 0 && opponentCenterX < playerCenterX);
+
+    if (distance < range && inFront) {
+        // Hit!
+        let actualDamage = damage;
+        if (opponent.action === 'block') {
+            actualDamage = Math.floor(damage * CONFIG.ATTACK.BLOCK_REDUCTION);
+        } else {
+            opponent.action = 'hurt';
+            opponent.actionTime = Date.now();
+        }
+        opponent.hp -= actualDamage;
+
+        // Send attack notification
+        sendP2P({
+            type: 'attack',
+            attackType,
+            damage: actualDamage,
+            targetId: otherId,
+        });
+
+        // Check KO
+        if (opponent.hp <= 0) {
+            setTimeout(() => endGame(), 500);
+        }
+    }
 }
 
-function rectCollision(obj1, size1, obj2, size2) {
-    return obj1.x < obj2.x + size2.WIDTH &&
-           obj1.x + size1.WIDTH > obj2.x &&
-           obj1.y < obj2.y + size2.HEIGHT &&
-           obj1.y + size1.HEIGHT > obj2.y;
+function handleRemoteAttack(data) {
+    const myId = gameState.playerId || 1;
+    if (data.targetId === myId) {
+        const myPlayer = gameState.players[myId];
+        myPlayer.hp -= data.damage;
+        if (myPlayer.action !== 'block') {
+            myPlayer.action = 'hurt';
+            myPlayer.actionTime = Date.now();
+        }
+        if (myPlayer.hp <= 0) {
+            setTimeout(() => endGame(), 500);
+        }
+    }
 }
 
 function render() {
     ctx.clearRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
 
-    // Draw ground
-    ctx.fillStyle = '#2a2a4e';
-    ctx.fillRect(0, CONFIG.CANVAS_HEIGHT - 100, CONFIG.CANVAS_WIDTH, 100);
+    // Background gradient
+    const gradient = ctx.createLinearGradient(0, 0, 0, CONFIG.CANVAS_HEIGHT);
+    gradient.addColorStop(0, '#1a1a2e');
+    gradient.addColorStop(1, '#16213e');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
 
-    // Draw platforms (optional)
-    ctx.fillStyle = '#3a3a6e';
-    ctx.fillRect(300, 350, 200, 20);
-    ctx.fillRect(100, 250, 150, 20);
-    ctx.fillRect(550, 250, 150, 20);
+    // Draw ground
+    ctx.fillStyle = '#0f0f23';
+    ctx.fillRect(0, CONFIG.CANVAS_HEIGHT - 80, CONFIG.CANVAS_WIDTH, 80);
+
+    // Ground line
+    ctx.strokeStyle = '#e94560';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, CONFIG.CANVAS_HEIGHT - 80);
+    ctx.lineTo(CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT - 80);
+    ctx.stroke();
 
     // Draw players
     for (const id in gameState.players) {
         const p = gameState.players[id];
         const isMe = parseInt(id) === (gameState.playerId || 1);
 
-        // Body
+        // Determine which sprite to use
+        let spriteName = `char1_${p.action}`;
+        const sprite = SpriteManager.get(spriteName) || SpriteManager.get('char1_idle');
+
+        if (sprite) {
+            ctx.save();
+
+            // Flip sprite based on facing direction
+            const drawX = p.x + CONFIG.PLAYER.WIDTH / 2;
+            const drawY = p.y;
+
+            ctx.translate(drawX, drawY);
+            ctx.scale(p.facing, 1);
+
+            // Draw sprite centered
+            const scale = CONFIG.PLAYER.HEIGHT / sprite.height;
+            const drawWidth = sprite.width * scale;
+            const drawHeight = CONFIG.PLAYER.HEIGHT;
+
+            ctx.drawImage(sprite, -drawWidth / 2, 0, drawWidth, drawHeight);
+
+            ctx.restore();
+        } else {
+            // Fallback: colored rectangle
+            ctx.fillStyle = isMe ? '#00ff88' : '#ff6666';
+            ctx.fillRect(p.x, p.y, CONFIG.PLAYER.WIDTH, CONFIG.PLAYER.HEIGHT);
+        }
+
+        // Player indicator (P1/P2)
         ctx.fillStyle = isMe ? '#00ff88' : '#ff6666';
-        ctx.fillRect(p.x, p.y, CONFIG.PLAYER.WIDTH, CONFIG.PLAYER.HEIGHT);
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(isMe ? 'YOU' : 'P' + id, p.x + CONFIG.PLAYER.WIDTH / 2, p.y - 25);
 
-        // Direction indicator
-        ctx.fillStyle = '#fff';
-        const eyeX = p.x + (p.facing > 0 ? CONFIG.PLAYER.WIDTH - 12 : 4);
-        ctx.fillRect(eyeX, p.y + 15, 8, 8);
+        // HP bar above player
+        const hpPercent = Math.max(0, p.hp / CONFIG.PLAYER.MAX_HP);
+        const barWidth = 80;
+        const barX = p.x + CONFIG.PLAYER.WIDTH / 2 - barWidth / 2;
 
-        // HP bar
-        const hpPercent = p.hp / CONFIG.PLAYER.MAX_HP;
         ctx.fillStyle = '#333';
-        ctx.fillRect(p.x - 5, p.y - 15, 50, 8);
-        ctx.fillStyle = hpPercent > 0.3 ? '#00ff88' : '#ff4444';
-        ctx.fillRect(p.x - 5, p.y - 15, 50 * hpPercent, 8);
-    }
+        ctx.fillRect(barX, p.y - 15, barWidth, 10);
 
-    // Draw bullets
-    ctx.fillStyle = '#ffff00';
-    for (const b of gameState.bullets) {
-        ctx.fillRect(b.x, b.y, CONFIG.BULLET.WIDTH, CONFIG.BULLET.HEIGHT);
+        ctx.fillStyle = hpPercent > 0.3 ? '#00ff88' : '#ff4444';
+        ctx.fillRect(barX, p.y - 15, barWidth * hpPercent, 10);
+
+        // Action indicator (for debugging)
+        if (p.action !== 'idle') {
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px Arial';
+            ctx.fillText(p.action.toUpperCase(), p.x + CONFIG.PLAYER.WIDTH / 2, p.y - 40);
+        }
     }
 
     // Draw version info and connection status
     ctx.fillStyle = '#666';
     ctx.font = '12px monospace';
+    ctx.textAlign = 'left';
     const wsStatus = ws && ws.readyState === WebSocket.OPEN ? 'WS:OK' : 'WS:--';
     const p2pStatus = dataChannel && dataChannel.readyState === 'open' ? 'P2P:OK' : 'P2P:--';
     ctx.fillText(`${VERSION} | P${gameState.playerId || '?'} | ${wsStatus} ${p2pStatus}`, 10, CONFIG.CANVAS_HEIGHT - 10);
+
+    // Draw controls hint
+    ctx.fillStyle = '#444';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('Z/J:Punch  X/K:Kick  ↓/S:Block', CONFIG.CANVAS_WIDTH - 10, CONFIG.CANVAS_HEIGHT - 10);
 }
 
 function endGame() {
@@ -558,15 +683,21 @@ function endGame() {
     const myPlayer = gameState.players[gameState.playerId || 1];
     const otherPlayer = gameState.players[gameState.playerId === 1 ? 2 : 1];
 
+    // Set winner to win pose
+    if (myPlayer.hp > otherPlayer.hp) {
+        myPlayer.action = 'win';
+    } else if (otherPlayer.hp > myPlayer.hp) {
+        otherPlayer.action = 'win';
+    }
+
     let resultText = '';
     if (myPlayer.hp <= 0) {
-        resultText = 'Defeat...';
+        resultText = 'K.O. - Defeat...';
         document.getElementById('resultText').className = 'defeat';
     } else if (otherPlayer.hp <= 0) {
-        resultText = 'Victory!';
+        resultText = 'K.O. - Victory!';
         document.getElementById('resultText').className = 'victory';
     } else {
-        // Time up - compare HP
         if (myPlayer.hp > otherPlayer.hp) {
             resultText = 'Victory!';
             document.getElementById('resultText').className = 'victory';
@@ -590,6 +721,7 @@ function endGame() {
 // Input Handling
 // ===========================================
 document.addEventListener('keydown', (e) => {
+    keys[e.key.toLowerCase()] = true;
     keys[e.key] = true;
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key)) {
         e.preventDefault();
@@ -597,6 +729,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.addEventListener('keyup', (e) => {
+    keys[e.key.toLowerCase()] = false;
     keys[e.key] = false;
 });
 
@@ -607,11 +740,13 @@ document.querySelectorAll('.ctrl-btn').forEach(btn => {
     btn.addEventListener('touchstart', (e) => {
         e.preventDefault();
         keys[key] = true;
+        keys[key.toLowerCase()] = true;
     });
 
     btn.addEventListener('touchend', (e) => {
         e.preventDefault();
         keys[key] = false;
+        keys[key.toLowerCase()] = false;
     });
 });
 
@@ -653,14 +788,11 @@ document.getElementById('readyBtn').addEventListener('click', async () => {
     document.getElementById(`player${gameState.playerId || 1}Slot`).classList.add('ready');
 
     if (CONFIG.USE_MOCK) {
-        // Mock mode - start immediately
         startGame();
         return;
     }
 
-    // Setup P2P before marking ready
     await setupPeerConnection();
-
     ws.send(JSON.stringify({ type: 'ready' }));
 });
 
@@ -686,7 +818,6 @@ document.getElementById('backToLobby').addEventListener('click', () => {
     showScreen('lobby');
 });
 
-// Handle window resize
 window.addEventListener('resize', () => {
     if (gameState.screen === 'game' && canvas) {
         initCanvas();
@@ -694,10 +825,12 @@ window.addEventListener('resize', () => {
 });
 
 // Initialize
-console.log(`P2P Shooting Battle ${VERSION} loaded!`);
+console.log(`P2P Fighting Game ${VERSION} loaded!`);
 console.log('Mock mode:', CONFIG.USE_MOCK ? 'ON (for testing)' : 'OFF');
 
-// Show version in lobby
+// Preload sprites
+SpriteManager.loadAll();
+
 const versionEl = document.getElementById('versionInfo');
 if (versionEl) {
     versionEl.textContent = `${VERSION} | ${CONFIG.USE_MOCK ? 'MOCK' : 'P2P'}`;
