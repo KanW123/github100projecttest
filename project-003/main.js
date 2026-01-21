@@ -124,7 +124,7 @@ function getPalmRegion(landmarks, width, height) {
     };
 }
 
-// 手のひらエリアのマスクを作成（指の付け根を結んだポリゴン、小指側を広めに）
+// 手のひらエリアのマスクを作成（指の付け根を結んだポリゴン、両サイド広めに、小指側はカーブ）
 function createPalmMask(palm, width, height, landmarks) {
     const mask = new Uint8Array(width * height);
 
@@ -134,40 +134,66 @@ function createPalmMask(palm, width, height, landmarks) {
         y: p.y * height
     }));
 
-    // 手のひらポリゴンを定義
-    // 親指付け根(1) → 人差し指付け根(5) → 中指付け根(9) → 薬指付け根(13) → 小指付け根(17) → 手首(0)
-    // 小指側は外に広げる
     const wrist = pts[0];
     const thumbBase = pts[1];
+    const thumbTip = pts[4];
     const indexBase = pts[5];
     const middleBase = pts[9];
     const ringBase = pts[13];
     const pinkyBase = pts[17];
 
-    // 小指側を外側に広げる（手のひらの幅の20%程度）
+    // 手のひらの幅を計算
     const palmWidth = Math.abs(pinkyBase.x - thumbBase.x);
-    const expandX = palmWidth * 0.25;
+    const expandPinky = palmWidth * 0.3;  // 小指側を30%広げる
+    const expandThumb = palmWidth * 0.15; // 親指/人差し指側も15%広げる
 
-    // 手首も小指側を少し広げる
-    const wristExpanded = {
-        x: wrist.x + (pinkyBase.x > thumbBase.x ? expandX * 0.5 : -expandX * 0.5),
-        y: wrist.y
+    // 左右どちらに手があるか判定
+    const pinkyIsRight = pinkyBase.x > thumbBase.x;
+    const dirPinky = pinkyIsRight ? 1 : -1;
+    const dirThumb = pinkyIsRight ? -1 : 1;
+
+    // 親指側を少し広げる
+    const thumbExpanded = {
+        x: thumbBase.x + dirThumb * expandThumb,
+        y: thumbBase.y
+    };
+
+    // 人差し指付け根を少し広げる
+    const indexExpanded = {
+        x: indexBase.x + dirThumb * expandThumb * 0.5,
+        y: indexBase.y
     };
 
     // 小指付け根を外側に広げる
     const pinkyExpanded = {
-        x: pinkyBase.x + (pinkyBase.x > thumbBase.x ? expandX : -expandX),
+        x: pinkyBase.x + dirPinky * expandPinky,
         y: pinkyBase.y
     };
 
-    // ポリゴンの頂点（時計回りまたは反時計回り）
+    // 小指〜手首間をカーブで結ぶ（中間点を追加）
+    const curve1 = {
+        x: pinkyBase.x + dirPinky * expandPinky * 1.1,
+        y: pinkyBase.y + (wrist.y - pinkyBase.y) * 0.33
+    };
+    const curve2 = {
+        x: pinkyBase.x + dirPinky * expandPinky * 0.9,
+        y: pinkyBase.y + (wrist.y - pinkyBase.y) * 0.66
+    };
+    const wristPinkySide = {
+        x: wrist.x + dirPinky * expandPinky * 0.5,
+        y: wrist.y
+    };
+
+    // ポリゴンの頂点
     const polygon = [
-        { x: Math.floor(thumbBase.x), y: Math.floor(thumbBase.y) },
-        { x: Math.floor(indexBase.x), y: Math.floor(indexBase.y) },
+        { x: Math.floor(thumbExpanded.x), y: Math.floor(thumbExpanded.y) },
+        { x: Math.floor(indexExpanded.x), y: Math.floor(indexExpanded.y) },
         { x: Math.floor(middleBase.x), y: Math.floor(middleBase.y) },
         { x: Math.floor(ringBase.x), y: Math.floor(ringBase.y) },
         { x: Math.floor(pinkyExpanded.x), y: Math.floor(pinkyExpanded.y) },
-        { x: Math.floor(wristExpanded.x), y: Math.floor(wristExpanded.y) },
+        { x: Math.floor(curve1.x), y: Math.floor(curve1.y) },
+        { x: Math.floor(curve2.x), y: Math.floor(curve2.y) },
+        { x: Math.floor(wristPinkySide.x), y: Math.floor(wristPinkySide.y) },
         { x: Math.floor(wrist.x), y: Math.floor(wrist.y) }
     ];
 
