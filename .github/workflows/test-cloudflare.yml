@@ -7,12 +7,29 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Test Cloudflare API Token
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           curl -s -X GET "https://api.cloudflare.com/client/v4/user/tokens/verify" \
             -H "Authorization: Bearer $CF_TOKEN" | jq .
+
+      - name: Get Workers subdomain
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "=== Account Info ==="
+          curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/subdomain" \
+            -H "Authorization: Bearer $CF_TOKEN" | tee /tmp/subdomain.json | jq .
+
+          SUBDOMAIN=$(jq -r '.result.subdomain // "not-found"' /tmp/subdomain.json)
+          echo ""
+          echo "=== Workers URL ==="
+          echo "https://p2p-signaling.$SUBDOMAIN.workers.dev"
 
       - name: Test wrangler whoami
         uses: cloudflare/wrangler-action@v3
