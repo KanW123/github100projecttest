@@ -108,6 +108,199 @@ curl -X POST "https://api.openai.com/v1/images/generations" \
 
 ---
 
+## 画像参照生成（Image-to-Image）
+
+既存の画像を参照して、新しい画像を生成する方法。
+
+### エンドポイント
+```
+POST https://api.openai.com/v1/images/edits
+```
+
+### GitHub Actionsワークフローで使う場合
+
+#### ローカル / ghコマンドが使える環境
+```bash
+gh workflow run "Generate Image" \
+  -f prompt="同じスタイルで別のキャラクター" \
+  -f provider="openai" \
+  -f reference_image="ImageGenerator/generated/2026-01-21/img_xxx.png" \
+  -f input_fidelity="high"
+```
+
+#### Claude Code Web（curl版）
+```bash
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-image.yml/dispatches \
+  -d '{
+    "ref": "main",
+    "inputs": {
+      "prompt": "同じスタイルで別のキャラクター",
+      "provider": "openai",
+      "reference_image": "ImageGenerator/generated/2026-01-21/img_xxx.png",
+      "input_fidelity": "high"
+    }
+  }'
+```
+
+### パラメータ
+| パラメータ | 必須 | 説明 |
+|------------|------|------|
+| `prompt` | ✅ | 生成プロンプト |
+| `provider` | ✅ | `openai` |
+| `reference_image` | ❌ | リポジトリ内の参照画像パス |
+| `input_fidelity` | ❌ | `high`（特徴維持）/ `low`（自由度高） |
+
+### 参照画像パスの確認方法
+```bash
+# 最新の生成画像を確認
+ls -la ImageGenerator/generated/$(date +%Y-%m-%d)/
+```
+
+### 使い分け
+| モード | reference_image | 用途 |
+|--------|----------------|------|
+| テキストのみ | 空 | 新規画像生成 |
+| 画像参照 | パス指定 | スタイル維持・バリエーション生成 |
+
+### 注意点
+- 参照画像は**リポジトリ内に存在する**必要あり
+- パスは`ImageGenerator/generated/YYYY-MM-DD/xxx.png`形式
+- `input_fidelity=high`で元画像の特徴をより強く維持
+
+### ローカル環境での直接API呼び出し
+
+GitHub Actionsを経由せず、ローカルから直接APIを叩く方法。
+
+```bash
+# 1. 参照画像を/tmpにコピー（パス問題回避）
+cp project-004/assets/characters/char1_idle.png /tmp/ref.png
+
+# 2. API呼び出し（APIキーは直接埋め込む）
+curl -s -X POST "https://api.openai.com/v1/images/edits" \
+  -H "Authorization: Bearer YOUR_OPENAI_API_KEY" \
+  -F "model=gpt-image-1" \
+  -F "image[]=@/tmp/ref.png" \
+  -F "prompt=This character doing a straight punch, same outfit and style" \
+  -F "size=1024x1024" > /tmp/result.json
+
+# 3. base64デコードして保存
+cat /tmp/result.json | python3 -c "
+import json,sys,base64
+d=json.load(sys.stdin)
+open('/tmp/output.png','wb').write(base64.b64decode(d['data'][0]['b64_json']))
+"
+```
+
+### モデル選択
+
+| 用途 | モデル | エンドポイント |
+|------|--------|----------------|
+| **参照画像生成** | `gpt-image-1` | `/v1/images/edits` |
+| 通常のテキスト生成 | `gpt-image-1.5` | `/v1/images/generations` |
+
+⚠️ 参照画像生成（edits）では `gpt-image-1` を使う。`gpt-image-1.5` は edits エンドポイント非対応。
+
+### トラブルシューティング（実際に遭遇したエラー）
+
+#### エラー1: `permission denied`
+```
+(eval):1: permission denied:
+```
+**原因**: `source .env && curl ...` の形式がClaude Code環境で動かない
+**解決**: 環境変数を使わず、APIキーを直接コマンドに埋め込む
+
+#### エラー2: `blank argument where content is expected`
+```
+curl: option : blank argument where content is expected
+```
+**原因**: 環境変数 `$OPENAI_API_KEY` が展開されていない（空文字）
+**解決**: 同上、APIキーを直接埋め込む
+
+#### エラー3: `invalid_api_key`
+```json
+{
+  "error": {
+    "message": "Incorrect API key provided: ''.",
+    "type": "invalid_request_error",
+    "code": "invalid_api_key"
+  }
+}
+```
+**原因**: `OPENAI_API_KEY=xxx curl ...` の形式でも変数が渡らない
+**解決**: `-H "Authorization: Bearer sk-proj-xxxxx..."` のように直接書く
+
+#### 成功パターン（これをコピペすればOK）
+```bash
+# 1. 参照画像を/tmpにコピー
+cp 元画像.png /tmp/ref.png
+
+# 2. APIキーを直接埋め込んでcurl実行
+curl -s -X POST "https://api.openai.com/v1/images/edits" \
+  -H "Authorization: Bearer sk-proj-ここにAPIキーを直接貼る" \
+  -F "model=gpt-image-1" \
+  -F "image[]=@/tmp/ref.png" \
+  -F "prompt=This character doing a straight punch, same outfit and style" \
+  -F "size=1024x1024" > /tmp/result.json
+
+# 3. 結果確認（エラーチェック）
+cat /tmp/result.json | head -c 500
+
+# 4. 成功していればbase64デコード
+cat /tmp/result.json | python3 -c "
+import json,sys,base64
+d=json.load(sys.stdin)
+open('/tmp/output.png','wb').write(base64.b64decode(d['data'][0]['b64_json']))
+"
+
+# 5. 画像確認
+ls -la /tmp/output.png
+```
+
+#### なぜ /tmp にコピーするのか
+- 長いパス（`/Users/xxx/Desktop/github100projecttest/...`）だと問題が起きることがある
+- `/tmp/ref.png` のような短いパスなら確実
+
+### プロンプトのコツ
+
+キャラクターの一貫性を保つためのプロンプト例：
+
+```
+✅ 良い例:
+"This character in a powerful straight punch pose, same outfit and style, fighting game sprite, transparent background"
+
+"This character doing a high kick, same costume colors and design"
+
+❌ 悪い例:
+"A girl punching"  ← キャラクター特徴の指定がない
+"Red hair fighter" ← 曖昧すぎる
+```
+
+**ポイント:**
+- `This character` で参照画像のキャラを指す
+- `same outfit and style` で服装維持を明示
+- 具体的なポーズを指定
+- `transparent background` で背景透過（ゲーム素材用）
+
+### 成功事例
+
+**格ゲーキャラのポーズ生成** (2026-01-21)
+- 参照: `char1_idle.png`（赤道着+白帯+赤ズボン）
+- プロンプト: `This character doing a straight punch, same outfit style`
+- 結果: 服装の色・デザインが維持されたパンチポーズ
+
+参照なしで生成した場合は白ズボン+黒帯になっていたが、参照画像ありで赤ズボン+白帯を維持できた。
+
+### 制限事項
+
+- **実在の人物の写真**は編集不可（OpenAIポリシー）
+- イラスト・キャラクターは問題なし
+- 顔の特徴は `input_fidelity="high"` で維持されやすい
+
+---
+
 ## OpenAI 動画生成 (SORA)
 
 ### モデル一覧

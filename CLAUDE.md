@@ -82,6 +82,26 @@ curl -X POST \
   -d '{"ref":"main","inputs":{"prompt":"プロンプトをここに","provider":"openai"}}'
 ```
 
+#### 画像参照生成（Image-to-Image）
+既存画像を参照して新しい画像を生成：
+```bash
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-image.yml/dispatches \
+  -d '{
+    "ref":"main",
+    "inputs":{
+      "prompt":"同じスタイルで別バージョン",
+      "provider":"openai",
+      "reference_image":"ImageGenerator/generated/2026-01-21/img_xxx.png",
+      "input_fidelity":"high"
+    }
+  }'
+```
+- `reference_image`: リポジトリ内の参照画像パス
+- `input_fidelity`: `high`（特徴維持）/ `low`（自由度高）
+
 #### 動画生成 (curl版)
 ```bash
 curl -X POST \
@@ -169,7 +189,21 @@ gh run list --workflow="Generate Image" --limit 1
 - 通常画像: OpenAI `gpt-image-1.5` (Medium)
 - 4x4モーション: Gemini
 - 動画: SORA `sora-2`
-- 画像参照パラメータ: `input_reference`（※`image`ではない）
+
+**参照画像生成（Image-to-Image）クイック手順:**
+```bash
+# 参照画像を/tmpにコピー → API呼び出し → デコード
+cp 参照画像.png /tmp/ref.png
+curl -s -X POST "https://api.openai.com/v1/images/edits" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "model=gpt-image-1" \
+  -F "image[]=@/tmp/ref.png" \
+  -F "prompt=This character doing X pose, same outfit and style" \
+  -F "size=1024x1024" > /tmp/result.json
+# デコード: python3でb64_jsonを取り出してbase64.b64decode
+```
+⚠️ Claude Code環境では `source .env` が効かないことがある。APIキーは直接埋め込む。
+→ 詳細・プロンプト例は **GENERATION_GUIDE.md** 参照
 
 ---
 
