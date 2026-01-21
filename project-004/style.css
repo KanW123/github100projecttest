@@ -271,3 +271,13 @@ input::placeholder {
     background: #ff444433;
     color: #ff4444;
 }
+
+/* Version info */
+.version {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    font-size: 0.75em;
+    color: #555;
+    font-family: monospace;
+}
