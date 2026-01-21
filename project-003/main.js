@@ -443,6 +443,122 @@ async function detectHand(imageElement) {
     });
 }
 
+// 手全体をスキャンするアニメーション
+async function showScanAnimation(ctx, landmarks, width, height) {
+    // 手の全ランドマークから境界を計算（少し大きめに）
+    let minX = 1, maxX = 0, minY = 1, maxY = 0;
+    for (const lm of landmarks) {
+        minX = Math.min(minX, lm.x);
+        maxX = Math.max(maxX, lm.x);
+        minY = Math.min(minY, lm.y);
+        maxY = Math.max(maxY, lm.y);
+    }
+
+    // 少し余裕を持たせる
+    const padding = 0.05;
+    minX = Math.max(0, minX - padding);
+    maxX = Math.min(1, maxX + padding);
+    minY = Math.max(0, minY - padding);
+    maxY = Math.min(1, maxY + padding);
+
+    const left = Math.floor(minX * width);
+    const right = Math.floor(maxX * width);
+    const top = Math.floor(minY * height);
+    const bottom = Math.floor(maxY * height);
+    const scanWidth = right - left;
+    const scanHeight = bottom - top;
+
+    // スキャンアニメーション（上から下へ）
+    const steps = 30;
+    for (let i = 0; i <= steps; i++) {
+        ctx.clearRect(0, 0, width, height);
+
+        // 手の領域全体を薄くハイライト
+        ctx.fillStyle = 'rgba(0, 255, 200, 0.1)';
+        ctx.fillRect(left, top, scanWidth, scanHeight);
+
+        // スキャンライン
+        const scanY = top + (scanHeight * i / steps);
+        ctx.strokeStyle = 'rgba(0, 255, 200, 0.8)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(left, scanY);
+        ctx.lineTo(right, scanY);
+        ctx.stroke();
+
+        // スキャン済みエリアのグリッド
+        ctx.strokeStyle = 'rgba(0, 255, 200, 0.3)';
+        ctx.lineWidth = 1;
+        const gridSize = 20;
+        for (let gx = left; gx <= right; gx += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(gx, top);
+            ctx.lineTo(gx, Math.min(scanY, bottom));
+            ctx.stroke();
+        }
+        for (let gy = top; gy <= scanY && gy <= bottom; gy += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(left, gy);
+            ctx.lineTo(right, gy);
+            ctx.stroke();
+        }
+
+        // ランドマークを点で表示
+        ctx.fillStyle = 'rgba(0, 255, 100, 0.7)';
+        for (const lm of landmarks) {
+            const lx = lm.x * width;
+            const ly = lm.y * height;
+            if (ly <= scanY) {
+                ctx.beginPath();
+                ctx.arc(lx, ly, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 枠線
+        ctx.strokeStyle = 'rgba(0, 255, 200, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(left, top, scanWidth, scanHeight);
+
+        // コーナーマーク
+        const cornerSize = 15;
+        ctx.strokeStyle = 'rgba(0, 255, 200, 0.9)';
+        ctx.lineWidth = 3;
+        // 左上
+        ctx.beginPath();
+        ctx.moveTo(left, top + cornerSize);
+        ctx.lineTo(left, top);
+        ctx.lineTo(left + cornerSize, top);
+        ctx.stroke();
+        // 右上
+        ctx.beginPath();
+        ctx.moveTo(right - cornerSize, top);
+        ctx.lineTo(right, top);
+        ctx.lineTo(right, top + cornerSize);
+        ctx.stroke();
+        // 左下
+        ctx.beginPath();
+        ctx.moveTo(left, bottom - cornerSize);
+        ctx.lineTo(left, bottom);
+        ctx.lineTo(left + cornerSize, bottom);
+        ctx.stroke();
+        // 右下
+        ctx.beginPath();
+        ctx.moveTo(right - cornerSize, bottom);
+        ctx.lineTo(right, bottom);
+        ctx.lineTo(right, bottom - cornerSize);
+        ctx.stroke();
+
+        await new Promise(r => setTimeout(r, 30));
+    }
+
+    // 最後に全体をフラッシュ
+    ctx.fillStyle = 'rgba(0, 255, 200, 0.3)';
+    ctx.fillRect(left, top, scanWidth, scanHeight);
+    await new Promise(r => setTimeout(r, 200));
+    ctx.clearRect(0, 0, width, height);
+}
+
 // 共通の分析処理
 async function analyzeImage(canvas, width, height) {
     showSection(analysisSection);
@@ -471,7 +587,21 @@ async function analyzeImage(canvas, width, height) {
         return;
     }
 
-    updateProgress(50);
+    updateProgress(40);
+
+    // 分析画面にキャンバスを設定
+    photoCanvas.width = width;
+    photoCanvas.height = height;
+    overlayCanvas.width = width;
+    overlayCanvas.height = height;
+    const photoCtx = photoCanvas.getContext('2d');
+    photoCtx.putImageData(imageData, 0, 0);
+
+    // スキャンアニメーションを表示
+    const overlayCtx = overlayCanvas.getContext('2d');
+    await showScanAnimation(overlayCtx, landmarks, width, height);
+
+    updateProgress(60);
 
     // 手のひら領域を計算
     const palm = getPalmRegion(landmarks, width, height);
