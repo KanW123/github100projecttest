@@ -1,0 +1,8 @@
+{
+  "prompt": "This character in victory celebration pose with fist raised triumphantly, happy confident expression, same red and white martial arts outfit, side view facing right, full body, white background, 2D fighting game sprite",
+  "provider": "openai",
+  "model": "gpt-image-1",
+  "mode": "edit_with_reference",
+  "reference_image": "ImageGenerator/generated/2026-01-21/img_20260121_113256.png",
+  "created": "2026-01-21T16:10:30Z"
+}
