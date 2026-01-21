@@ -144,23 +144,24 @@ function createPalmMask(palm, width, height, landmarks) {
 
     // 手のひらの幅を計算
     const palmWidth = Math.abs(pinkyBase.x - thumbBase.x);
+    const fingerSpacing = palmWidth / 4; // 指の間隔（大体）
     const expandPinky = palmWidth * 0.3;  // 小指側を30%広げる
-    const expandThumb = palmWidth * 0.15; // 親指/人差し指側も15%広げる
+    const expandThumb = fingerSpacing * 0.6; // 人差し指側を指間隔の60%広げる
 
     // 左右どちらに手があるか判定
     const pinkyIsRight = pinkyBase.x > thumbBase.x;
     const dirPinky = pinkyIsRight ? 1 : -1;
     const dirThumb = pinkyIsRight ? -1 : 1;
 
-    // 親指側を少し広げる
+    // 親指側を広げる
     const thumbExpanded = {
         x: thumbBase.x + dirThumb * expandThumb,
         y: thumbBase.y
     };
 
-    // 人差し指付け根を少し広げる
+    // 人差し指付け根を広げる
     const indexExpanded = {
-        x: indexBase.x + dirThumb * expandThumb * 0.5,
+        x: indexBase.x + dirThumb * expandThumb * 0.7,
         y: indexBase.y
     };
 
@@ -382,6 +383,111 @@ function evaluateLineStrength(points) {
     if (points.length < 20) return 'weak';
     if (points.length < 100) return 'medium';
     return 'strong';
+}
+
+// エッジデータから手相を分析
+function analyzePalmLines(edges, mask, width, height, landmarks, threshold) {
+    const pts = landmarks.map(p => ({ x: p.x * width, y: p.y * height }));
+
+    const wrist = pts[0];
+    const thumbBase = pts[1];
+    const indexBase = pts[5];
+    const middleBase = pts[9];
+    const pinkyBase = pts[17];
+
+    // 手のひらの高さ（指の付け根〜手首）
+    const palmHeight = Math.abs(wrist.y - middleBase.y);
+    const palmWidth = Math.abs(pinkyBase.x - thumbBase.x);
+
+    // 各エリアのエッジ強度を集計
+    const analysis = {
+        heartLine: { count: 0, totalStrength: 0, area: '指の付け根付近' },
+        headLine: { count: 0, totalStrength: 0, area: '手のひら中央横' },
+        lifeLine: { count: 0, totalStrength: 0, area: '親指周辺カーブ' },
+        fateLine: { count: 0, totalStrength: 0, area: '手のひら中央縦' }
+    };
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (edges[idx] < threshold || mask[idx] === 0) continue;
+
+            const strength = edges[idx];
+
+            // 相対位置を計算
+            const relY = (y - middleBase.y) / palmHeight; // 0=指の付け根, 1=手首
+            const relX = (x - thumbBase.x) / palmWidth;   // 0=親指側, 1=小指側
+
+            // 感情線エリア（上部、relY: 0〜0.3）
+            if (relY >= 0 && relY < 0.35 && relX > 0.2 && relX < 1.0) {
+                analysis.heartLine.count++;
+                analysis.heartLine.totalStrength += strength;
+            }
+            // 頭脳線エリア（中央、relY: 0.25〜0.55）
+            if (relY >= 0.25 && relY < 0.6 && relX > 0.1 && relX < 0.9) {
+                analysis.headLine.count++;
+                analysis.headLine.totalStrength += strength;
+            }
+            // 生命線エリア（親指側カーブ、relX: 0〜0.4）
+            if (relX >= -0.1 && relX < 0.45 && relY > 0.1 && relY < 0.9) {
+                analysis.lifeLine.count++;
+                analysis.lifeLine.totalStrength += strength;
+            }
+            // 運命線エリア（中央縦、relX: 0.35〜0.65）
+            if (relX >= 0.35 && relX < 0.65 && relY > 0.3 && relY < 0.85) {
+                analysis.fateLine.count++;
+                analysis.fateLine.totalStrength += strength;
+            }
+        }
+    }
+
+    // 平均強度を計算
+    for (const key of Object.keys(analysis)) {
+        const line = analysis[key];
+        line.avgStrength = line.count > 0 ? line.totalStrength / line.count : 0;
+        line.clarity = line.count > 50 ? (line.avgStrength > 60 ? 'くっきり' : '普通') : '薄め';
+    }
+
+    return analysis;
+}
+
+// 分析結果からコメントを生成
+function generateAnalysisComment(analysis) {
+    const comments = [];
+
+    // 感情線
+    if (analysis.heartLine.count > 80) {
+        comments.push('💗 <strong>感情線</strong>がはっきり見えます。感受性が豊かな傾向。');
+    } else if (analysis.heartLine.count > 30) {
+        comments.push('💗 <strong>感情線</strong>を検出。バランスの取れた感情表現。');
+    }
+
+    // 頭脳線
+    if (analysis.headLine.count > 80) {
+        comments.push('🧠 <strong>頭脳線</strong>がくっきり。論理的思考が得意かも。');
+    } else if (analysis.headLine.count > 30) {
+        comments.push('🧠 <strong>頭脳線</strong>を検出。直感と論理のバランス型。');
+    }
+
+    // 生命線
+    if (analysis.lifeLine.count > 100) {
+        comments.push('💪 <strong>生命線</strong>がしっかり。エネルギッシュな傾向。');
+    } else if (analysis.lifeLine.count > 40) {
+        comments.push('💪 <strong>生命線</strong>を検出。安定した生命力。');
+    }
+
+    // 運命線
+    if (analysis.fateLine.count > 60) {
+        comments.push('⭐ <strong>運命線</strong>が見えます。目標に向かう意志が強そう。');
+    } else if (analysis.fateLine.count > 20) {
+        comments.push('⭐ <strong>運命線</strong>の兆候あり。自分らしい道を歩むタイプ。');
+    }
+
+    if (comments.length === 0) {
+        comments.push('手相の線を分析中...もう少しはっきり手のひらを見せてください。');
+    }
+
+    return comments;
 }
 
 // 結果画像を描画（エッジを単色で表示）
@@ -708,9 +814,21 @@ async function analyzeImage(canvas, width, height) {
     const resultCtx = resultCanvas.getContext('2d');
     drawResult(resultCtx, imageData, edges, mask, palm, width, height);
 
-    // 凡例と占い結果は非表示
+    // 手相分析
+    const threshold = 25;
+    const analysis = analyzePalmLines(edges, mask, width, height, landmarks, threshold);
+    const comments = generateAnalysisComment(analysis);
+
+    // 結果を表示
     legend.innerHTML = '';
-    fortuneResult.innerHTML = '<h2>手相分析完了</h2><p style="text-align: center; color: #ccc;">手のひらのラインを検出しました</p>';
+    let html = '<h2>手相分析結果</h2>';
+    html += '<div style="text-align: left; line-height: 1.8;">';
+    for (const comment of comments) {
+        html += `<p style="margin: 12px 0;">${comment}</p>`;
+    }
+    html += '</div>';
+    html += '<p style="text-align: center; color: #888; font-size: 12px; margin-top: 16px;">※エンターテイメント目的の簡易分析です</p>';
+    fortuneResult.innerHTML = html;
 
     updateProgress(100);
 
