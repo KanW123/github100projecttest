@@ -16,6 +16,11 @@ on:
           - openai
           - gemini
 
+# Prevent concurrent runs to avoid commit conflicts
+concurrency:
+  group: image-generation
+  cancel-in-progress: false
+
 jobs:
   generate:
     runs-on: ubuntu-latest
@@ -104,4 +109,16 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add ImageGenerator/generated/
           git commit -m "Generate image: ${{ inputs.prompt }}" || echo "No changes to commit"
-          git push
+
+          # Retry push with rebase on conflict (up to 5 attempts)
+          for i in 1 2 3 4 5; do
+            echo "Push attempt $i..."
+            if git push; then
+              echo "Push successful!"
+              break
+            else
+              echo "Push failed, pulling with rebase..."
+              git pull --rebase origin main || true
+              sleep $((i * 2))
+            fi
+          done
