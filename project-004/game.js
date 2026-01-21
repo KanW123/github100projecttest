@@ -3,6 +3,8 @@
 // ===========================================
 // Configuration
 // ===========================================
+const VERSION = 'v1.1.0';
+
 const CONFIG = {
     // Cloudflare Workers Signaling Server
     SIGNALING_SERVER: 'wss://p2p-signaling.ailovedirector.workers.dev',
@@ -378,13 +380,13 @@ function update(dt) {
         myPlayer.vx = 0;
     }
 
-    if ((keys['ArrowUp'] || keys['w'] || keys[' ']) && myPlayer.grounded) {
+    if ((keys['ArrowUp'] || keys['w']) && myPlayer.grounded) {
         myPlayer.vy = -CONFIG.PLAYER.JUMP_FORCE;
         myPlayer.grounded = false;
     }
 
-    // Shooting
-    if (keys['Space'] || keys['f']) {
+    // Shooting (Space or F key)
+    if (keys[' '] || keys['f']) {
         const now = Date.now();
         if (now - gameState.lastShot >= CONFIG.BULLET.COOLDOWN) {
             fireBullet(myPlayer);
@@ -527,6 +529,11 @@ function render() {
     for (const b of gameState.bullets) {
         ctx.fillRect(b.x, b.y, CONFIG.BULLET.WIDTH, CONFIG.BULLET.HEIGHT);
     }
+
+    // Draw version info
+    ctx.fillStyle = '#666';
+    ctx.font = '12px monospace';
+    ctx.fillText(`${VERSION} | P${gameState.playerId || '?'} | Room: ${gameState.roomId || '---'}`, 10, CONFIG.CANVAS_HEIGHT - 10);
 }
 
 function endGame() {
@@ -671,5 +678,11 @@ window.addEventListener('resize', () => {
 });
 
 // Initialize
-console.log('P2P Shooting Battle loaded!');
+console.log(`P2P Shooting Battle ${VERSION} loaded!`);
 console.log('Mock mode:', CONFIG.USE_MOCK ? 'ON (for testing)' : 'OFF');
+
+// Show version in lobby
+const versionEl = document.getElementById('versionInfo');
+if (versionEl) {
+    versionEl.textContent = `${VERSION} | ${CONFIG.USE_MOCK ? 'MOCK' : 'P2P'}`;
+}
