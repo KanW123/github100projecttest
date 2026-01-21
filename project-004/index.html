@@ -2,18 +2,66 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project 004</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>P2P Shooting Battle</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <a href="../index.html">← Back to Projects</a>
-        <h1>Project 004</h1>
-    </header>
-    <main>
-        <p>このプロジェクトはまだ未開発です。</p>
-    </main>
-    <script src="main.js"></script>
+    <div id="app">
+        <!-- Lobby Screen -->
+        <div id="lobby" class="screen active">
+            <h1>P2P Shooting Battle</h1>
+            <div class="lobby-buttons">
+                <button id="createRoom">Create Room</button>
+                <div class="join-section">
+                    <input type="text" id="roomInput" placeholder="Room Code" maxlength="6">
+                    <button id="joinRoom">Join</button>
+                </div>
+            </div>
+            <p id="lobbyStatus"></p>
+        </div>
+
+        <!-- Waiting Room -->
+        <div id="waiting" class="screen">
+            <h2>Room: <span id="roomCode">------</span></h2>
+            <p id="waitingStatus">Waiting for opponent...</p>
+            <div id="players">
+                <div class="player-slot" id="player1Slot">Player 1: <span>---</span></div>
+                <div class="player-slot" id="player2Slot">Player 2: <span>---</span></div>
+            </div>
+            <button id="readyBtn" disabled>Ready</button>
+            <button id="leaveRoom">Leave</button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game" class="screen">
+            <div id="gameHeader">
+                <div id="p1Stats">P1 HP: <span id="p1HP">100</span></div>
+                <div id="timer">60</div>
+                <div id="p2Stats">P2 HP: <span id="p2HP">100</span></div>
+            </div>
+            <canvas id="gameCanvas"></canvas>
+            <div id="mobileControls">
+                <div id="leftControls">
+                    <button class="ctrl-btn" data-key="ArrowLeft">←</button>
+                    <button class="ctrl-btn" data-key="ArrowRight">→</button>
+                </div>
+                <div id="rightControls">
+                    <button class="ctrl-btn" data-key="ArrowUp">↑</button>
+                    <button class="ctrl-btn" data-key="Space">FIRE</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Result Screen -->
+        <div id="result" class="screen">
+            <h2 id="resultText">Victory!</h2>
+            <p id="resultStats"></p>
+            <button id="rematch">Rematch</button>
+            <button id="backToLobby">Back to Lobby</button>
+        </div>
+    </div>
+
+    <script src="game.js" type="module"></script>
 </body>
 </html>
