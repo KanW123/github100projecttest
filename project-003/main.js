@@ -91,75 +91,121 @@ async function initCamera() {
     }
 }
 
-// 手のランドマークから手のひら領域を計算
+// 手全体の領域を計算（指を含む）
 function getPalmRegion(landmarks, width, height) {
-    // ランドマークインデックス:
-    // 0: 手首
-    // 5: 人差し指付け根, 9: 中指付け根, 13: 薬指付け根, 17: 小指付け根
-    // 1: 親指付け根
-
-    const wrist = landmarks[0];
-    const indexBase = landmarks[5];
-    const middleBase = landmarks[9];
-    const ringBase = landmarks[13];
-    const pinkyBase = landmarks[17];
-    const thumbBase = landmarks[1];
-
-    // 手のひらの境界を計算
-    const palmPoints = [wrist, thumbBase, indexBase, middleBase, ringBase, pinkyBase];
-
+    // 全21ランドマークから境界を計算
     let minX = 1, maxX = 0, minY = 1, maxY = 0;
-    for (const p of palmPoints) {
+    for (const p of landmarks) {
         minX = Math.min(minX, p.x);
         maxX = Math.max(maxX, p.x);
         minY = Math.min(minY, p.y);
         maxY = Math.max(maxY, p.y);
     }
 
-    // ピクセル座標に変換（少し内側にマージン）
-    const margin = 0.02;
+    // 少し余裕を持たせる
+    const padding = 0.03;
+    minX = Math.max(0, minX - padding);
+    maxX = Math.min(1, maxX + padding);
+    minY = Math.max(0, minY - padding);
+    maxY = Math.min(1, maxY + padding);
+
+    // ピクセル座標に変換
     return {
-        left: Math.floor((minX + margin) * width),
-        right: Math.floor((maxX - margin) * width),
-        top: Math.floor((minY + margin) * height),
-        bottom: Math.floor((maxY - margin) * height),
-        width: Math.floor((maxX - minX - margin * 2) * width),
-        height: Math.floor((maxY - minY - margin * 2) * height),
+        left: Math.floor(minX * width),
+        right: Math.floor(maxX * width),
+        top: Math.floor(minY * height),
+        bottom: Math.floor(maxY * height),
+        width: Math.floor((maxX - minX) * width),
+        height: Math.floor((maxY - minY) * height),
         landmarks: landmarks,
-        // 手のひらの中心
-        centerX: Math.floor(middleBase.x * width),
-        centerY: Math.floor((wrist.y + middleBase.y) / 2 * height)
+        // 手の中心
+        centerX: Math.floor(landmarks[9].x * width),
+        centerY: Math.floor((landmarks[0].y + landmarks[9].y) / 2 * height)
     };
 }
 
-// 手のひら領域のマスクを作成（内側に縮小）
+// 手全体のマスクを作成（指を含む）
 function createPalmMask(palm, width, height, landmarks) {
     const mask = new Uint8Array(width * height);
 
-    // 手のひらの中心を計算
-    const centerX = (landmarks[0].x + landmarks[9].x) / 2;
-    const centerY = (landmarks[0].y + landmarks[9].y) / 2;
+    // 手の外周を構成するランドマーク（時計回り）
+    // 手首 → 親指 → 人差し指 → 中指 → 薬指 → 小指 → 手首に戻る
+    const outlineIndices = [
+        0,   // 手首
+        1, 2, 3, 4,    // 親指
+        5, 6, 7, 8,    // 人差し指
+        9, 10, 11, 12, // 中指
+        13, 14, 15, 16, // 薬指
+        17, 18, 19, 20  // 小指
+    ];
 
-    // ポリゴンを中心に向かって縮小（5%内側に、輪郭ノイズ除去用）
-    const shrinkFactor = 0.95;
-    const polygonPoints = [
-        landmarks[0],  // 手首
-        landmarks[1],  // 親指付け根
-        landmarks[5],  // 人差し指付け根
-        landmarks[9],  // 中指付け根
-        landmarks[13], // 薬指付け根
-        landmarks[17], // 小指付け根
-    ].map(p => {
-        const newX = centerX + (p.x - centerX) * shrinkFactor;
-        const newY = centerY + (p.y - centerY) * shrinkFactor;
-        return { x: Math.floor(newX * width), y: Math.floor(newY * height) };
-    });
+    // 手の凸包を作成（全ランドマークを含む）
+    const allPoints = landmarks.map(p => ({
+        x: Math.floor(p.x * width),
+        y: Math.floor(p.y * height)
+    }));
 
-    // ポリゴン内部を塗りつぶし
-    for (let y = palm.top; y <= palm.bottom; y++) {
-        for (let x = palm.left; x <= palm.right; x++) {
-            if (isPointInPolygon(x, y, polygonPoints)) {
-                mask[y * width + x] = 255;
+    // 手の境界ボックスを計算
+    let minX = width, maxX = 0, minY = height, maxY = 0;
+    for (const p of allPoints) {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+    }
+
+    // 少し余裕を持たせる
+    const padding = 10;
+    minX = Math.max(0, minX - padding);
+    maxX = Math.min(width - 1, maxX + padding);
+    minY = Math.max(0, minY - padding);
+    maxY = Math.min(height - 1, maxY + padding);
+
+    // 各ランドマーク周辺を円形にマスク
+    for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+            // 各ランドマークからの距離をチェック
+            for (const p of allPoints) {
+                const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
+                // ランドマーク周辺30px以内をマスク
+                if (dist < 30) {
+                    mask[y * width + x] = 255;
+                    break;
+                }
+            }
+        }
+    }
+
+    // ランドマーク間を線でつないでマスクを埋める
+    const connections = [
+        [0, 1], [1, 2], [2, 3], [3, 4],      // 親指
+        [0, 5], [5, 6], [6, 7], [7, 8],      // 人差し指
+        [0, 9], [9, 10], [10, 11], [11, 12], // 中指
+        [0, 13], [13, 14], [14, 15], [15, 16], // 薬指
+        [0, 17], [17, 18], [18, 19], [19, 20], // 小指
+        [5, 9], [9, 13], [13, 17]            // 指の付け根を横につなぐ
+    ];
+
+    for (const [i, j] of connections) {
+        const p1 = allPoints[i];
+        const p2 = allPoints[j];
+        // 線分上の点を全て含む
+        const steps = Math.max(Math.abs(p2.x - p1.x), Math.abs(p2.y - p1.y));
+        for (let s = 0; s <= steps; s++) {
+            const t = steps === 0 ? 0 : s / steps;
+            const px = Math.floor(p1.x + (p2.x - p1.x) * t);
+            const py = Math.floor(p1.y + (p2.y - p1.y) * t);
+            // 線の周辺20pxをマスク
+            for (let dy = -20; dy <= 20; dy++) {
+                for (let dx = -20; dx <= 20; dx++) {
+                    const nx = px + dx;
+                    const ny = py + dy;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        if (dx * dx + dy * dy <= 400) { // 半径20px
+                            mask[ny * width + nx] = 255;
+                        }
+                    }
+                }
             }
         }
     }
@@ -326,36 +372,49 @@ function evaluateLineStrength(points) {
     return 'strong';
 }
 
-// 結果画像を描画
-function drawResult(ctx, imageData, lines, palm, width, height) {
+// 結果画像を描画（エッジを単色で表示）
+function drawResult(ctx, imageData, edges, mask, palm, width, height) {
     // 元画像を描画
     ctx.putImageData(imageData, 0, 0);
 
-    // 手のひら領域を薄くハイライト
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    ctx.fillRect(palm.left, palm.top, palm.width, palm.height);
+    // 検出したエッジを単色で描画
+    const threshold = 40;
+    ctx.fillStyle = 'rgba(0, 255, 200, 0.8)';
 
-    // 各線を色付きで描画
-    for (const [lineType, points] of Object.entries(lines)) {
-        if (points.length === 0) continue;
-
-        const color = PALM_LINES[lineType].color;
-        ctx.fillStyle = color;
-
-        for (const point of points) {
-            ctx.beginPath();
-            ctx.arc(point.x, point.y, 2, 0, Math.PI * 2);
-            ctx.fill();
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const idx = y * width + x;
+            if (edges[idx] > threshold && mask[idx] > 0) {
+                ctx.fillRect(x, y, 1, 1);
+            }
         }
     }
 
-    // ランドマークを描画（デバッグ用、小さく）
+    // ランドマークを描画
     if (palm.landmarks) {
-        ctx.fillStyle = 'rgba(0, 255, 0, 0.5)';
+        ctx.fillStyle = 'rgba(0, 255, 100, 0.7)';
         for (const lm of palm.landmarks) {
             ctx.beginPath();
-            ctx.arc(lm.x * width, lm.y * height, 3, 0, Math.PI * 2);
+            ctx.arc(lm.x * width, lm.y * height, 5, 0, Math.PI * 2);
             ctx.fill();
+        }
+
+        // ランドマーク間の接続線
+        ctx.strokeStyle = 'rgba(0, 255, 100, 0.4)';
+        ctx.lineWidth = 2;
+        const connections = [
+            [0, 1], [1, 2], [2, 3], [3, 4],
+            [0, 5], [5, 6], [6, 7], [7, 8],
+            [0, 9], [9, 10], [10, 11], [11, 12],
+            [0, 13], [13, 14], [14, 15], [15, 16],
+            [0, 17], [17, 18], [18, 19], [19, 20],
+            [5, 9], [9, 13], [13, 17]
+        ];
+        for (const [i, j] of connections) {
+            ctx.beginPath();
+            ctx.moveTo(palm.landmarks[i].x * width, palm.landmarks[i].y * height);
+            ctx.lineTo(palm.landmarks[j].x * width, palm.landmarks[j].y * height);
+            ctx.stroke();
         }
     }
 }
@@ -615,25 +674,17 @@ async function analyzeImage(canvas, width, height) {
     // エッジ検出
     const edges = detectEdges(imageData, mask, palm);
 
-    updateProgress(80);
+    updateProgress(85);
 
-    // 手相の線を分類
-    const lines = classifyPalmLines(edges, width, height, mask, palm);
-
-    updateProgress(90);
-
-    // 結果キャンバスに描画
+    // 結果キャンバスに描画（色分けなし、エッジのみ表示）
     resultCanvas.width = width;
     resultCanvas.height = height;
     const resultCtx = resultCanvas.getContext('2d');
-    drawResult(resultCtx, imageData, lines, palm, width, height);
+    drawResult(resultCtx, imageData, edges, mask, palm, width, height);
 
-    // 凡例生成
-    createLegend(lines);
-
-    // 占い結果生成
-    const fortune = generateFortune(lines);
-    displayFortune(fortune);
+    // 凡例と占い結果は非表示
+    legend.innerHTML = '';
+    fortuneResult.innerHTML = '<h2>手相分析完了</h2><p style="text-align: center; color: #ccc;">手のひらのラインを検出しました</p>';
 
     updateProgress(100);
 
