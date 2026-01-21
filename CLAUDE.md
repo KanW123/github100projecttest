@@ -201,7 +201,39 @@ env:
 |----------|------|
 | `OPENAI_API_KEY` | OpenAI (GPT Image / SORA) |
 | `GOOGLE_API_KEY` | Google Gemini / Imagen |
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Pages |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Pages / Workers |
+| `CLOUDFLARE_API_TOKEN` | Cloudflare Workers デプロイ |
+
+---
+
+## Cloudflare 設定
+
+### アカウント情報
+- **プラン**: 有料プラン（Workers Paid / Durable Objects使用可）
+- **Pages URL**: `https://github100projecttest.pages.dev/`
+- **Workers URL**: `https://p2p-signaling.<subdomain>.workers.dev`
+  - ※ subdomainはCloudflareダッシュボード → Workers → 右上で確認
+
+### Cloudflare API Token（GitHub Secretsに登録済み）
+作成場所: Cloudflare Dashboard → My Profile → API Tokens
+- トークン名: `github100projecttest build token`
+- 権限: Workers Scripts, D1, KV Storage, R2 Storage, Pages 等
+
+### Workers デプロイ
+GitHub Actionsから自動デプロイ可能:
+```bash
+# Claude Code Webからトリガー
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/deploy-workers.yml/dispatches \
+  -d '{"ref":"main","inputs":{"worker_path":"project-004/workers/signaling"}}'
+```
+
+### 既存Workers
+| Worker名 | 用途 | 場所 |
+|----------|------|------|
+| `p2p-signaling` | P2P対戦ゲームのシグナリングサーバー | `project-004/workers/signaling/` |
 
 ---
 
