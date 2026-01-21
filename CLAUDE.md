@@ -210,9 +210,9 @@ env:
 
 ### アカウント情報
 - **プラン**: 有料プラン（Workers Paid / Durable Objects使用可）
+- **Workers サブドメイン**: `ailovedirector.workers.dev`
 - **Pages URL**: `https://github100projecttest.pages.dev/`
-- **Workers URL**: `https://p2p-signaling.<subdomain>.workers.dev`
-  - ※ subdomainはCloudflareダッシュボード → Workers → 右上で確認
+- **Workers URL例**: `https://p2p-signaling.ailovedirector.workers.dev`
 
 ### Cloudflare API Token（GitHub Secretsに登録済み）
 作成場所: Cloudflare Dashboard → My Profile → API Tokens

@@ -4,10 +4,10 @@
 // Configuration
 // ===========================================
 const CONFIG = {
-    // Change this after deploying Workers
-    SIGNALING_SERVER: 'wss://p2p-signaling.your-subdomain.workers.dev',
-    // Fallback for local testing (WebSocket echo or mock)
-    USE_MOCK: true,
+    // Cloudflare Workers Signaling Server
+    SIGNALING_SERVER: 'wss://p2p-signaling.ailovedirector.workers.dev',
+    // Set to false for real P2P, true for solo testing
+    USE_MOCK: false,
 
     CANVAS_WIDTH: 800,
     CANVAS_HEIGHT: 600,
