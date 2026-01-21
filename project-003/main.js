@@ -263,13 +263,6 @@ function detectEdges(imageData, mask, palm) {
 
     return thinned;
 }
-        for (let i = 0; i < edges.length; i++) {
-            edges[i] = (edges[i] / max) * 255;
-        }
-    }
-
-    return edges;
-}
 
 // 手相の線を分類（ランドマーク基準）
 function classifyPalmLines(edges, width, height, mask, palm) {
