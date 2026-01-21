@@ -3,7 +3,7 @@
 // ===========================================
 // Configuration
 // ===========================================
-const VERSION = 'v1.1.0';
+const VERSION = 'v1.2.0';
 
 const CONFIG = {
     // Cloudflare Workers Signaling Server
@@ -294,6 +294,20 @@ function sendP2P(data) {
     }
 }
 
+// Sync remote player state from WebSocket fallback
+function syncRemotePlayer(data) {
+    const otherId = gameState.playerId === 1 ? 2 : 1;
+
+    if (data.type === 'player_state' || data.state) {
+        const state = data.state || data;
+        gameState.players[otherId] = { ...gameState.players[otherId], ...state };
+    } else if (data.type === 'bullet_fired' && data.bullet) {
+        gameState.bullets.push(data.bullet);
+    } else if (data.type === 'hit') {
+        gameState.players[data.targetId].hp -= CONFIG.BULLET.DAMAGE;
+    }
+}
+
 // ===========================================
 // Game Logic
 // ===========================================
@@ -530,10 +544,12 @@ function render() {
         ctx.fillRect(b.x, b.y, CONFIG.BULLET.WIDTH, CONFIG.BULLET.HEIGHT);
     }
 
-    // Draw version info
+    // Draw version info and connection status
     ctx.fillStyle = '#666';
     ctx.font = '12px monospace';
-    ctx.fillText(`${VERSION} | P${gameState.playerId || '?'} | Room: ${gameState.roomId || '---'}`, 10, CONFIG.CANVAS_HEIGHT - 10);
+    const wsStatus = ws && ws.readyState === WebSocket.OPEN ? 'WS:OK' : 'WS:--';
+    const p2pStatus = dataChannel && dataChannel.readyState === 'open' ? 'P2P:OK' : 'P2P:--';
+    ctx.fillText(`${VERSION} | P${gameState.playerId || '?'} | ${wsStatus} ${p2pStatus}`, 10, CONFIG.CANVAS_HEIGHT - 10);
 }
 
 function endGame() {
