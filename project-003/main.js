@@ -124,88 +124,74 @@ function getPalmRegion(landmarks, width, height) {
     };
 }
 
-// 手全体のマスクを作成（指を含む）
+// 手のひらエリアのマスクを作成（指の付け根を結んだポリゴン、小指側を広めに）
 function createPalmMask(palm, width, height, landmarks) {
     const mask = new Uint8Array(width * height);
 
-    // 手の外周を構成するランドマーク（時計回り）
-    // 手首 → 親指 → 人差し指 → 中指 → 薬指 → 小指 → 手首に戻る
-    const outlineIndices = [
-        0,   // 手首
-        1, 2, 3, 4,    // 親指
-        5, 6, 7, 8,    // 人差し指
-        9, 10, 11, 12, // 中指
-        13, 14, 15, 16, // 薬指
-        17, 18, 19, 20  // 小指
-    ];
-
-    // 手の凸包を作成（全ランドマークを含む）
-    const allPoints = landmarks.map(p => ({
-        x: Math.floor(p.x * width),
-        y: Math.floor(p.y * height)
+    // ランドマークをピクセル座標に変換
+    const pts = landmarks.map(p => ({
+        x: p.x * width,
+        y: p.y * height
     }));
 
-    // 手の境界ボックスを計算
+    // 手のひらポリゴンを定義
+    // 親指付け根(1) → 人差し指付け根(5) → 中指付け根(9) → 薬指付け根(13) → 小指付け根(17) → 手首(0)
+    // 小指側は外に広げる
+    const wrist = pts[0];
+    const thumbBase = pts[1];
+    const indexBase = pts[5];
+    const middleBase = pts[9];
+    const ringBase = pts[13];
+    const pinkyBase = pts[17];
+
+    // 小指側を外側に広げる（手のひらの幅の20%程度）
+    const palmWidth = Math.abs(pinkyBase.x - thumbBase.x);
+    const expandX = palmWidth * 0.25;
+
+    // 手首も小指側を少し広げる
+    const wristExpanded = {
+        x: wrist.x + (pinkyBase.x > thumbBase.x ? expandX * 0.5 : -expandX * 0.5),
+        y: wrist.y
+    };
+
+    // 小指付け根を外側に広げる
+    const pinkyExpanded = {
+        x: pinkyBase.x + (pinkyBase.x > thumbBase.x ? expandX : -expandX),
+        y: pinkyBase.y
+    };
+
+    // ポリゴンの頂点（時計回りまたは反時計回り）
+    const polygon = [
+        { x: Math.floor(thumbBase.x), y: Math.floor(thumbBase.y) },
+        { x: Math.floor(indexBase.x), y: Math.floor(indexBase.y) },
+        { x: Math.floor(middleBase.x), y: Math.floor(middleBase.y) },
+        { x: Math.floor(ringBase.x), y: Math.floor(ringBase.y) },
+        { x: Math.floor(pinkyExpanded.x), y: Math.floor(pinkyExpanded.y) },
+        { x: Math.floor(wristExpanded.x), y: Math.floor(wristExpanded.y) },
+        { x: Math.floor(wrist.x), y: Math.floor(wrist.y) }
+    ];
+
+    // バウンディングボックスを計算
     let minX = width, maxX = 0, minY = height, maxY = 0;
-    for (const p of allPoints) {
+    for (const p of polygon) {
         minX = Math.min(minX, p.x);
         maxX = Math.max(maxX, p.x);
         minY = Math.min(minY, p.y);
         maxY = Math.max(maxY, p.y);
     }
 
-    // 少し余裕を持たせる
-    const padding = 10;
-    minX = Math.max(0, minX - padding);
-    maxX = Math.min(width - 1, maxX + padding);
-    minY = Math.max(0, minY - padding);
-    maxY = Math.min(height - 1, maxY + padding);
+    // パディング
+    const pad = 5;
+    minX = Math.max(0, minX - pad);
+    maxX = Math.min(width - 1, maxX + pad);
+    minY = Math.max(0, minY - pad);
+    maxY = Math.min(height - 1, maxY + pad);
 
-    // 各ランドマーク周辺を円形にマスク
+    // ポリゴン内部を塗りつぶし
     for (let y = minY; y <= maxY; y++) {
         for (let x = minX; x <= maxX; x++) {
-            // 各ランドマークからの距離をチェック
-            for (const p of allPoints) {
-                const dist = Math.sqrt((x - p.x) ** 2 + (y - p.y) ** 2);
-                // ランドマーク周辺30px以内をマスク
-                if (dist < 30) {
-                    mask[y * width + x] = 255;
-                    break;
-                }
-            }
-        }
-    }
-
-    // ランドマーク間を線でつないでマスクを埋める
-    const connections = [
-        [0, 1], [1, 2], [2, 3], [3, 4],      // 親指
-        [0, 5], [5, 6], [6, 7], [7, 8],      // 人差し指
-        [0, 9], [9, 10], [10, 11], [11, 12], // 中指
-        [0, 13], [13, 14], [14, 15], [15, 16], // 薬指
-        [0, 17], [17, 18], [18, 19], [19, 20], // 小指
-        [5, 9], [9, 13], [13, 17]            // 指の付け根を横につなぐ
-    ];
-
-    for (const [i, j] of connections) {
-        const p1 = allPoints[i];
-        const p2 = allPoints[j];
-        // 線分上の点を全て含む
-        const steps = Math.max(Math.abs(p2.x - p1.x), Math.abs(p2.y - p1.y));
-        for (let s = 0; s <= steps; s++) {
-            const t = steps === 0 ? 0 : s / steps;
-            const px = Math.floor(p1.x + (p2.x - p1.x) * t);
-            const py = Math.floor(p1.y + (p2.y - p1.y) * t);
-            // 線の周辺20pxをマスク
-            for (let dy = -20; dy <= 20; dy++) {
-                for (let dx = -20; dx <= 20; dx++) {
-                    const nx = px + dx;
-                    const ny = py + dy;
-                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                        if (dx * dx + dy * dy <= 400) { // 半径20px
-                            mask[ny * width + nx] = 255;
-                        }
-                    }
-                }
+            if (isPointInPolygon(x, y, polygon)) {
+                mask[y * width + x] = 255;
             }
         }
     }
@@ -377,9 +363,19 @@ function drawResult(ctx, imageData, edges, mask, palm, width, height) {
     // 元画像を描画
     ctx.putImageData(imageData, 0, 0);
 
-    // 検出したエッジを単色で描画
-    const threshold = 40;
-    ctx.fillStyle = 'rgba(0, 255, 200, 0.8)';
+    // 検出エリアを薄くハイライト
+    ctx.fillStyle = 'rgba(0, 255, 200, 0.1)';
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            if (mask[y * width + x] > 0) {
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+    }
+
+    // 検出したエッジを描画（閾値を低めに設定して細かく検出）
+    const threshold = 25;
+    ctx.fillStyle = 'rgba(0, 255, 200, 0.9)';
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
@@ -390,18 +386,22 @@ function drawResult(ctx, imageData, edges, mask, palm, width, height) {
         }
     }
 
-    // ランドマークを描画
+    // ランドマークを描画（指の付け根のみ大きく）
     if (palm.landmarks) {
-        ctx.fillStyle = 'rgba(0, 255, 100, 0.7)';
-        for (const lm of palm.landmarks) {
+        const keyPoints = [0, 1, 5, 9, 13, 17]; // 手首、親指付け根、各指付け根
+
+        // キーポイントを強調
+        ctx.fillStyle = 'rgba(0, 255, 100, 0.8)';
+        for (const i of keyPoints) {
+            const lm = palm.landmarks[i];
             ctx.beginPath();
-            ctx.arc(lm.x * width, lm.y * height, 5, 0, Math.PI * 2);
+            ctx.arc(lm.x * width, lm.y * height, 6, 0, Math.PI * 2);
             ctx.fill();
         }
 
-        // ランドマーク間の接続線
-        ctx.strokeStyle = 'rgba(0, 255, 100, 0.4)';
-        ctx.lineWidth = 2;
+        // 手のスケルトン（薄く）
+        ctx.strokeStyle = 'rgba(0, 255, 100, 0.3)';
+        ctx.lineWidth = 1;
         const connections = [
             [0, 1], [1, 2], [2, 3], [3, 4],
             [0, 5], [5, 6], [6, 7], [7, 8],
