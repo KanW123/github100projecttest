@@ -82,6 +82,26 @@ curl -X POST \
   -d '{"ref":"main","inputs":{"prompt":"プロンプトをここに","provider":"openai"}}'
 ```
 
+#### 画像参照生成（Image-to-Image）
+既存画像を参照して新しい画像を生成：
+```bash
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-image.yml/dispatches \
+  -d '{
+    "ref":"main",
+    "inputs":{
+      "prompt":"同じスタイルで別バージョン",
+      "provider":"openai",
+      "reference_image":"ImageGenerator/generated/2026-01-21/img_xxx.png",
+      "input_fidelity":"high"
+    }
+  }'
+```
+- `reference_image`: リポジトリ内の参照画像パス
+- `input_fidelity`: `high`（特徴維持）/ `low`（自由度高）
+
 #### 動画生成 (curl版)
 ```bash
 curl -X POST \

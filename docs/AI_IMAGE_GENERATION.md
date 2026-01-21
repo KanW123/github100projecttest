@@ -15,13 +15,44 @@ Claude Code Web環境からAI画像生成を行う際の知見。
 4. Pillow/numpy で後処理（透過、合成など）
 ```
 
-### ワークフロートリガー
+### ワークフロートリガー（テキストのみ）
 ```bash
 curl -X POST \
   -H "Authorization: token YOUR_GITHUB_TOKEN" \
   -H "Accept: application/vnd.github.v3+json" \
-  https://api.github.com/repos/OWNER/REPO/actions/workflows/generate-image.yml/dispatches \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-image.yml/dispatches \
   -d '{"ref":"main","inputs":{"prompt":"プロンプト","provider":"openai"}}'
+```
+
+### ワークフロートリガー（画像参照付き / Image-to-Image）
+既存画像を参照して新しい画像を生成：
+```bash
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-image.yml/dispatches \
+  -d '{
+    "ref":"main",
+    "inputs":{
+      "prompt":"同じスタイルで別のキャラクター",
+      "provider":"openai",
+      "reference_image":"ImageGenerator/generated/2026-01-21/img_xxx.png",
+      "input_fidelity":"high"
+    }
+  }'
+```
+
+**パラメータ:**
+| パラメータ | 必須 | 説明 |
+|------------|------|------|
+| `prompt` | ✅ | 生成プロンプト |
+| `provider` | ✅ | `openai` |
+| `reference_image` | ❌ | リポジトリ内の参照画像パス |
+| `input_fidelity` | ❌ | `high`（特徴維持）/ `low`（自由度高）|
+
+**参照画像パス確認:**
+```bash
+ls ImageGenerator/generated/
 ```
 
 ### 実行状況確認

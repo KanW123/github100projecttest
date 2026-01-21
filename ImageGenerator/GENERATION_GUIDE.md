@@ -108,6 +108,70 @@ curl -X POST "https://api.openai.com/v1/images/generations" \
 
 ---
 
+## 画像参照生成（Image-to-Image）
+
+既存の画像を参照して、新しい画像を生成する方法。
+
+### エンドポイント
+```
+POST https://api.openai.com/v1/images/edits
+```
+
+### GitHub Actionsワークフローで使う場合
+
+#### ローカル / ghコマンドが使える環境
+```bash
+gh workflow run "Generate Image" \
+  -f prompt="同じスタイルで別のキャラクター" \
+  -f provider="openai" \
+  -f reference_image="ImageGenerator/generated/2026-01-21/img_xxx.png" \
+  -f input_fidelity="high"
+```
+
+#### Claude Code Web（curl版）
+```bash
+curl -X POST \
+  -H "Authorization: token YOUR_GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github.v3+json" \
+  https://api.github.com/repos/KanW123/github100projecttest/actions/workflows/generate-image.yml/dispatches \
+  -d '{
+    "ref": "main",
+    "inputs": {
+      "prompt": "同じスタイルで別のキャラクター",
+      "provider": "openai",
+      "reference_image": "ImageGenerator/generated/2026-01-21/img_xxx.png",
+      "input_fidelity": "high"
+    }
+  }'
+```
+
+### パラメータ
+| パラメータ | 必須 | 説明 |
+|------------|------|------|
+| `prompt` | ✅ | 生成プロンプト |
+| `provider` | ✅ | `openai` |
+| `reference_image` | ❌ | リポジトリ内の参照画像パス |
+| `input_fidelity` | ❌ | `high`（特徴維持）/ `low`（自由度高） |
+
+### 参照画像パスの確認方法
+```bash
+# 最新の生成画像を確認
+ls -la ImageGenerator/generated/$(date +%Y-%m-%d)/
+```
+
+### 使い分け
+| モード | reference_image | 用途 |
+|--------|----------------|------|
+| テキストのみ | 空 | 新規画像生成 |
+| 画像参照 | パス指定 | スタイル維持・バリエーション生成 |
+
+### 注意点
+- 参照画像は**リポジトリ内に存在する**必要あり
+- パスは`ImageGenerator/generated/YYYY-MM-DD/xxx.png`形式
+- `input_fidelity=high`で元画像の特徴をより強く維持
+
+---
+
 ## OpenAI 動画生成 (SORA)
 
 ### モデル一覧
