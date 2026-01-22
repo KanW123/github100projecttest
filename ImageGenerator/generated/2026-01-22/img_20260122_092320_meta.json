@@ -1,0 +1,9 @@
+{
+  "prompt": "Tarot card X Wheel of Fortune, French Art Nouveau style by Alphonse Mucha, ornate golden borders, great wheel with sphinx snake anubis, Hebrew letters, clouds, vintage mystical illustration",
+  "provider": "openai",
+  "model": "gpt-image-1.5",
+  "mode": "text_only",
+  "size": "1024x1024",
+  "created": "2026-01-22T09:23:20Z",
+  "quality": "medium"
+}
