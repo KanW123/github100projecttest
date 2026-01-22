@@ -1,0 +1,8 @@
+{
+  "prompt": "Tarot card The Magician, French Art Nouveau style by Alphonse Mucha, ornate golden borders with mystical symbols, a robed figure with wand pointing to sky, infinity symbol above head, roses and lilies, table with cup sword pentacle wand, ethereal lighting, vintage poster illustration, decorative frame",
+  "provider": "openai",
+  "model": "gpt-image-1",
+  "mode": "text_only",
+  "created": "2026-01-22T06:26:00Z",
+  "quality": "medium"
+}
