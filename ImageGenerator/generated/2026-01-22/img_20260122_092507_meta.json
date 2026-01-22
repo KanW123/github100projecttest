@@ -1,0 +1,9 @@
+{
+  "prompt": "Tarot card XXI The World, French Art Nouveau style by Alphonse Mucha, ornate golden borders, dancing figure in oval wreath, four corners angel eagle bull lion, completion fulfillment, vintage mystical illustration",
+  "provider": "openai",
+  "model": "gpt-image-1.5",
+  "mode": "text_only",
+  "size": "1024x1024",
+  "created": "2026-01-22T09:25:07Z",
+  "quality": "medium"
+}
