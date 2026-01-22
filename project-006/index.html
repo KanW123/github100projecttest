@@ -3,17 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project 006</title>
+    <title>Mystic Tarot - タロット占い</title>
     <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
 </head>
 <body>
+    <div class="background-container">
+        <img src="https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1920&q=80" alt="" class="bg-image" id="bgImage1">
+        <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1920&q=80" alt="" class="bg-image" id="bgImage2">
+        <div class="overlay"></div>
+    </div>
+
+    <canvas id="particles"></canvas>
+
     <header>
-        <a href="../index.html">← Back to Projects</a>
-        <h1>Project 006</h1>
+        <a href="../index.html" class="back-link">← Back to Projects</a>
     </header>
+
     <main>
-        <p>このプロジェクトはまだ未開発です。</p>
+        <div class="container">
+            <!-- 初期画面 -->
+            <section class="intro-section" id="introSection">
+                <h1 class="title">
+                    <span class="title-main">Mystic Tarot</span>
+                    <span class="title-sub">神秘のタロット占い</span>
+                </h1>
+                <p class="description">心を静め、あなたの問いを心に浮かべてください</p>
+                <button class="start-btn" id="startBtn">
+                    <span class="btn-text">占いを始める</span>
+                    <span class="btn-glow"></span>
+                </button>
+            </section>
+
+            <!-- カード選択画面 -->
+            <section class="spread-section hidden" id="spreadSection">
+                <h2 class="spread-title">カードを選んでください</h2>
+                <p class="spread-hint">直感を信じて、1枚のカードをタップしてください</p>
+                <div class="card-spread" id="cardSpread">
+                    <!-- JSで生成 -->
+                </div>
+            </section>
+
+            <!-- 結果画面 -->
+            <section class="result-section hidden" id="resultSection">
+                <div class="result-card-container">
+                    <div class="result-card" id="resultCard">
+                        <div class="card-inner">
+                            <div class="card-front">
+                                <div class="card-frame">
+                                    <div class="card-number" id="cardNumber"></div>
+                                    <div class="card-symbol" id="cardSymbol"></div>
+                                    <div class="card-name" id="cardName"></div>
+                                </div>
+                            </div>
+                            <div class="card-back">
+                                <div class="card-pattern"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="position-badge" id="positionBadge"></div>
+                </div>
+
+                <div class="result-content" id="resultContent">
+                    <h2 class="result-title" id="resultTitle"></h2>
+                    <div class="result-meaning">
+                        <h3>カードの意味</h3>
+                        <p id="cardMeaning"></p>
+                    </div>
+                    <div class="result-advice">
+                        <h3>今日のアドバイス</h3>
+                        <p id="cardAdvice"></p>
+                    </div>
+                </div>
+
+                <button class="retry-btn" id="retryBtn">
+                    <span>もう一度占う</span>
+                </button>
+            </section>
+        </div>
     </main>
+
     <script src="main.js"></script>
 </body>
 </html>
