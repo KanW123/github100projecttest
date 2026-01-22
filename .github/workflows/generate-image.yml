@@ -126,6 +126,10 @@ jobs:
 
           # Use jq to safely create JSON
           SIZE="${{ inputs.size }}"
+          if [ -z "$SIZE" ]; then
+            SIZE="1024x1024"
+          fi
+          echo "Size: $SIZE"
           JSON_PAYLOAD=$(jq -n \
             --arg prompt "$PROMPT" \
             --arg size "$SIZE" \
