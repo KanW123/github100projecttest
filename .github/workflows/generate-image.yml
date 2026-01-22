@@ -27,6 +27,15 @@ on:
         options:
           - high
           - low
+      size:
+        description: '画像サイズ'
+        required: false
+        default: '1024x1024'
+        type: choice
+        options:
+          - 1024x1024
+          - 1024x1792
+          - 1792x1024
 
 # Prevent concurrent runs to avoid commit conflicts
 concurrency:
@@ -116,12 +125,14 @@ jobs:
           echo "Prompt: $PROMPT"
 
           # Use jq to safely create JSON
+          SIZE="${{ inputs.size }}"
           JSON_PAYLOAD=$(jq -n \
             --arg prompt "$PROMPT" \
+            --arg size "$SIZE" \
             '{
               model: "gpt-image-1",
               prompt: $prompt,
-              size: "1024x1024",
+              size: $size,
               n: 1
             }')
 
@@ -164,6 +175,7 @@ jobs:
             "provider": "openai",
             "model": "gpt-image-1",
             "mode": "text_only",
+            "size": "$SIZE",
             "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "quality": "medium"
           }
