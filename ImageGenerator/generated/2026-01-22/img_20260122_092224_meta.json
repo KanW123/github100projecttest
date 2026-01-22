@@ -1,0 +1,9 @@
+{
+  "prompt": "Tarot card 0 The Fool, French Art Nouveau style by Alphonse Mucha, ornate golden borders, young traveler with small dog at cliff edge, bag on stick, ethereal pastel colors, vintage mystical illustration",
+  "provider": "openai",
+  "model": "gpt-image-1.5",
+  "mode": "text_only",
+  "size": "1024x1024",
+  "created": "2026-01-22T09:22:24Z",
+  "quality": "medium"
+}
