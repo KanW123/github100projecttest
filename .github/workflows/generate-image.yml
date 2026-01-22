@@ -136,7 +136,7 @@ jobs:
             --arg prompt "$PROMPT" \
             --arg size "$SIZE" \
             '{
-              model: "gpt-image-1",
+              model: "gpt-image-1.5",
               prompt: $prompt,
               size: $size,
               n: 1
@@ -179,7 +179,7 @@ jobs:
           {
             "prompt": "$PROMPT",
             "provider": "openai",
-            "model": "gpt-image-1",
+            "model": "gpt-image-1.5",
             "mode": "text_only",
             "size": "$SIZE",
             "created": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
