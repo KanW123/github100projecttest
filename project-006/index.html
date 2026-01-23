@@ -16,8 +16,16 @@
 
     <canvas id="particles"></canvas>
 
+    <!-- BGM -->
+    <audio id="bgm" loop>
+        <source src="assets/audio/bgm.ogg" type="audio/ogg">
+    </audio>
+
     <header>
         <a href="../index.html" class="back-link">← Back to Projects</a>
+        <button class="bgm-toggle" id="bgmToggle" title="BGM ON/OFF">
+            <span class="bgm-icon">🔇</span>
+        </button>
     </header>
 
     <main>
@@ -76,6 +84,37 @@
                         </div>
                     </div>
                 </div>
+            </section>
+
+            <!-- 恋愛占い設定画面 -->
+            <section class="love-setup-section hidden" id="loveSetupSection">
+                <h2 class="setup-title">恋愛占いの設定</h2>
+                <div class="gender-selection">
+                    <div class="gender-group">
+                        <label>あなたの性別</label>
+                        <div class="gender-buttons">
+                            <button class="gender-btn" data-gender="male" data-target="you">♂ 男性</button>
+                            <button class="gender-btn" data-gender="female" data-target="you">♀ 女性</button>
+                        </div>
+                    </div>
+                    <div class="gender-group">
+                        <label>お相手の性別</label>
+                        <div class="gender-buttons">
+                            <button class="gender-btn" data-gender="male" data-target="partner">♂ 男性</button>
+                            <button class="gender-btn" data-gender="female" data-target="partner">♀ 女性</button>
+                        </div>
+                    </div>
+                    <div class="gender-group">
+                        <label>現在の関係</label>
+                        <div class="relation-buttons">
+                            <button class="relation-btn" data-relation="before">片思い・交際前</button>
+                            <button class="relation-btn" data-relation="after">交際中・結婚</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="start-love-btn" id="startLoveBtn" disabled>
+                    <span>占いを始める</span>
+                </button>
             </section>
 
             <!-- カード選択画面 -->

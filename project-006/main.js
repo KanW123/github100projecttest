@@ -339,6 +339,7 @@ const majorArcana = [
 // DOM要素
 const introSection = document.getElementById('introSection');
 const modeSection = document.getElementById('modeSection');
+const loveSetupSection = document.getElementById('loveSetupSection');
 const spreadSection = document.getElementById('spreadSection');
 const resultSection = document.getElementById('resultSection');
 const startBtn = document.getElementById('startBtn');
@@ -347,11 +348,23 @@ const cardSpread = document.getElementById('cardSpread');
 const resultCard = document.getElementById('resultCard');
 const bgImage1 = document.getElementById('bgImage1');
 const bgImage2 = document.getElementById('bgImage2');
+const bgm = document.getElementById('bgm');
+const bgmToggle = document.getElementById('bgmToggle');
 
 // 現在の占いモード
 let currentMode = 'daily';
 let selectedCards = [];
 let cardsToSelect = 1;
+
+// 恋愛占い設定
+let loveSettings = {
+    yourGender: null,
+    partnerGender: null,
+    relation: null
+};
+
+// BGM状態
+let bgmPlaying = false;
 
 // モード設定
 const modeConfig = {
@@ -616,6 +629,7 @@ function showResult() {
 function generateMultiCardAdvice() {
     const config = modeConfig[currentMode];
     let advice = '';
+    let meaning = '';
 
     if (currentMode === 'love') {
         const you = selectedCards[0];
@@ -623,24 +637,169 @@ function generateMultiCardAdvice() {
         const yourCard = majorArcana[you.cardIndex];
         const partnerCard = majorArcana[partner.cardIndex];
 
-        advice = `あなたは「${yourCard.nameJa}」、相手は「${partnerCard.nameJa}」。`;
-        advice += you.isReversed
-            ? `あなたは${yourCard.reversed.meaning.slice(0, 30)}...。`
-            : `あなたは${yourCard.upright.meaning.slice(0, 30)}...。`;
-        advice += partner.isReversed
-            ? `相手は${partnerCard.reversed.meaning.slice(0, 30)}...の状態です。`
-            : `相手は${partnerCard.upright.meaning.slice(0, 30)}...の状態です。`;
-    } else if (currentMode === 'time') {
-        const past = majorArcana[selectedCards[0].cardIndex];
-        const present = majorArcana[selectedCards[1].cardIndex];
-        const future = majorArcana[selectedCards[2].cardIndex];
+        // 相性スコア計算（カードの組み合わせで決定）
+        const compatibilityScore = calculateCompatibility(you, partner);
 
-        advice = `過去に「${past.nameJa}」を経験し、現在「${present.nameJa}」の状態にあります。`;
-        advice += `未来には「${future.nameJa}」が待っています。`;
+        // 基本の状態説明
+        meaning = `【あなたの状態】\n`;
+        meaning += you.isReversed
+            ? `${yourCard.nameJa}（逆位置）: ${yourCard.reversed.meaning}\n\n`
+            : `${yourCard.nameJa}（正位置）: ${yourCard.upright.meaning}\n\n`;
+        meaning += `【お相手の状態】\n`;
+        meaning += partner.isReversed
+            ? `${partnerCard.nameJa}（逆位置）: ${partnerCard.reversed.meaning}`
+            : `${partnerCard.nameJa}（正位置）: ${partnerCard.upright.meaning}`;
+
+        // 詳細アドバイス（性別と関係性に応じて）
+        advice = generateDetailedLoveAdvice(yourCard, partnerCard, you.isReversed, partner.isReversed, compatibilityScore);
+
+    } else if (currentMode === 'time') {
+        const pastSelection = selectedCards[0];
+        const presentSelection = selectedCards[1];
+        const futureSelection = selectedCards[2];
+        const past = majorArcana[pastSelection.cardIndex];
+        const present = majorArcana[presentSelection.cardIndex];
+        const future = majorArcana[futureSelection.cardIndex];
+
+        meaning = `【過去】${past.nameJa}\n`;
+        meaning += pastSelection.isReversed ? past.reversed.meaning : past.upright.meaning;
+        meaning += `\n\n【現在】${present.nameJa}\n`;
+        meaning += presentSelection.isReversed ? present.reversed.meaning : present.upright.meaning;
+        meaning += `\n\n【未来】${future.nameJa}\n`;
+        meaning += futureSelection.isReversed ? future.reversed.meaning : future.upright.meaning;
+
+        advice = generateTimeAdvice(past, present, future, pastSelection.isReversed, presentSelection.isReversed, futureSelection.isReversed);
     }
 
+    document.getElementById('cardMeaning').textContent = meaning;
     document.getElementById('cardAdvice').textContent = advice;
-    document.getElementById('cardMeaning').textContent = '';
+}
+
+// 相性スコア計算
+function calculateCompatibility(you, partner) {
+    // 両方正位置ならベース高め、両方逆位置なら課題あり
+    let score = 50;
+    if (!you.isReversed && !partner.isReversed) score += 20;
+    if (you.isReversed && partner.isReversed) score -= 10;
+    // カードの相性も加味
+    const yourNum = majorArcana[you.cardIndex].number;
+    const partnerNum = majorArcana[partner.cardIndex].number;
+    // 恋人たち(6)が含まれていれば加点
+    if (yourNum === 6 || partnerNum === 6) score += 15;
+    // 太陽(19)が含まれていれば加点
+    if (yourNum === 19 || partnerNum === 19) score += 10;
+    return Math.min(100, Math.max(0, score));
+}
+
+// 恋愛の詳細アドバイス生成
+function generateDetailedLoveAdvice(yourCard, partnerCard, yourReversed, partnerReversed, score) {
+    const { yourGender, partnerGender, relation } = loveSettings;
+    let advice = '';
+
+    // 相性スコア表示
+    const scoreLabel = score >= 70 ? '★★★ 良好' : score >= 40 ? '★★ 普通' : '★ 要注意';
+    advice += `【相性】${scoreLabel}（${score}点）\n\n`;
+
+    // 交際前の場合
+    if (relation === 'before') {
+        advice += `【片思い・交際前のあなたへ】\n`;
+
+        if (!yourReversed && !partnerReversed) {
+            advice += `カードは両者ともに良い状態を示しています。相手もあなたに好意を持っている可能性が高いです。\n\n`;
+            advice += `【行動のアドバイス】\n`;
+            advice += `・積極的にアプローチしてみましょう\n`;
+            advice += `・自然な形で二人きりの時間を作ることをお勧めします\n`;
+            advice += `・あなたの気持ちを素直に伝えるタイミングです`;
+        } else if (yourReversed && !partnerReversed) {
+            advice += `相手の状態は良好ですが、あなた自身に少し迷いや不安があるようです。\n\n`;
+            advice += `【行動のアドバイス】\n`;
+            advice += `・まずは自分の気持ちを整理しましょう\n`;
+            advice += `・焦ってアプローチするより、友人関係を深めることから\n`;
+            advice += `・自信を持てるよう、自分磨きに時間をかけて`;
+        } else if (!yourReversed && partnerReversed) {
+            advice += `あなたの想いは純粋ですが、相手は今、心に余裕がないかもしれません。\n\n`;
+            advice += `【行動のアドバイス】\n`;
+            advice += `・急かさず、相手のペースを尊重しましょう\n`;
+            advice += `・さりげないサポートで存在をアピール\n`;
+            advice += `・告白は相手の状況が落ち着いてからが吉`;
+        } else {
+            advice += `お互いに複雑な心境にあるようです。今は恋愛よりも自分自身と向き合う時期かもしれません。\n\n`;
+            advice += `【行動のアドバイス】\n`;
+            advice += `・無理に関係を進めないこと\n`;
+            advice += `・友人としての関係を大切に\n`;
+            advice += `・お互いの状況が変わるのを待つのも選択肢`;
+        }
+    }
+    // 交際中の場合
+    else {
+        advice += `【交際中・結婚されている方へ】\n`;
+
+        if (!yourReversed && !partnerReversed) {
+            advice += `お二人の関係は安定しています。互いへの信頼と愛情が感じられます。\n\n`;
+            advice += `【関係を深めるために】\n`;
+            advice += `・日頃の感謝を言葉にして伝えましょう\n`;
+            advice += `・新しい体験を一緒にすると絆が深まります\n`;
+            advice += `・将来の話をオープンにできる良い時期です`;
+        } else if (yourReversed && !partnerReversed) {
+            advice += `パートナーはあなたを大切に思っていますが、あなた自身に何か引っかかることがあるようです。\n\n`;
+            advice += `【関係改善のために】\n`;
+            advice += `・不満があれば素直に話し合いましょう\n`;
+            advice += `・一人の時間も大切にしてバランスを取って\n`;
+            advice += `・パートナーの良いところを意識的に見つめ直して`;
+        } else if (!yourReversed && partnerReversed) {
+            advice += `あなたの愛情は変わりませんが、相手は何か悩みを抱えているかもしれません。\n\n`;
+            advice += `【関係改善のために】\n`;
+            advice += `・責めずに話を聞いてあげましょう\n`;
+            advice += `・相手の変化に敏感になって\n`;
+            advice += `・二人で問題を共有し、解決策を一緒に考えて`;
+        } else {
+            advice += `お互いに課題を抱えている時期です。でも、これは関係を見つめ直すチャンスでもあります。\n\n`;
+            advice += `【関係改善のために】\n`;
+            advice += `・冷静に話し合う時間を設けましょう\n`;
+            advice += `・過去の問題を持ち出さず、今に集中して\n`;
+            advice += `・必要であれば第三者（カウンセラーなど）の力を借りることも`;
+        }
+    }
+
+    return advice;
+}
+
+// 時間軸の詳細アドバイス生成
+function generateTimeAdvice(past, present, future, pastRev, presentRev, futureRev) {
+    let advice = '';
+
+    advice += `【時の流れが示すメッセージ】\n\n`;
+
+    // 過去の影響
+    advice += `過去に「${past.nameJa}」のエネルギーを経験したことが、今のあなたの基盤となっています。`;
+    if (pastRev) {
+        advice += `その時の困難や試練から学んだことを忘れないでください。\n\n`;
+    } else {
+        advice += `その経験があなたに強さを与えています。\n\n`;
+    }
+
+    // 現在の状況
+    advice += `現在、あなたは「${present.nameJa}」の時期にいます。`;
+    if (presentRev) {
+        advice += `課題に直面しているかもしれませんが、これは成長のための試練です。\n\n`;
+    } else {
+        advice += `この力を最大限に活かせる時です。\n\n`;
+    }
+
+    // 未来への展望
+    advice += `未来には「${future.nameJa}」が待っています。`;
+    if (futureRev) {
+        advice += `注意が必要ですが、今から準備をすれば困難は乗り越えられます。\n\n`;
+    } else {
+        advice += `希望を持って進んでください。良い展開が期待できます。\n\n`;
+    }
+
+    advice += `【今すべきこと】\n`;
+    advice += `・過去の経験を糧にしましょう\n`;
+    advice += `・現在に集中し、できることを着実に\n`;
+    advice += `・未来を信じて、前向きな行動を`;
+
+    return advice;
 }
 
 // ローマ数字変換
@@ -668,6 +827,9 @@ function resetReading() {
     // 選択状態リセット
     selectedCards = [];
 
+    // 恋愛設定もリセット
+    resetLoveSettings();
+
     // アニメーションのリセット
     document.getElementById('positionBadge').style.animation = 'none';
     document.getElementById('resultContent').style.animation = 'none';
@@ -678,6 +840,7 @@ function resetReading() {
 
     // セクション切り替え（モード選択に戻る）
     resultSection.classList.add('hidden');
+    loveSetupSection.classList.add('hidden');
     modeSection.classList.remove('hidden');
 
     // マルチカード表示リセット
@@ -739,8 +902,69 @@ document.querySelectorAll('.mode-card').forEach(card => {
         currentMode = card.dataset.mode;
         selectedCards = [];
         cardsToSelect = modeConfig[currentMode].cards;
-        startReading();
+
+        // 恋愛モードは設定画面へ
+        if (currentMode === 'love') {
+            modeSection.classList.add('hidden');
+            loveSetupSection.classList.remove('hidden');
+            resetLoveSettings();
+        } else {
+            startReading();
+        }
     });
+});
+
+// 恋愛占い設定リセット
+function resetLoveSettings() {
+    loveSettings = { yourGender: null, partnerGender: null, relation: null };
+    document.querySelectorAll('.gender-btn, .relation-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    document.getElementById('startLoveBtn').disabled = true;
+}
+
+// 性別・関係性選択
+document.querySelectorAll('.gender-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const target = btn.dataset.target;
+        const gender = btn.dataset.gender;
+
+        // 同じグループの他のボタンの選択を解除
+        document.querySelectorAll(`.gender-btn[data-target="${target}"]`).forEach(b => {
+            b.classList.remove('selected');
+        });
+        btn.classList.add('selected');
+
+        if (target === 'you') {
+            loveSettings.yourGender = gender;
+        } else {
+            loveSettings.partnerGender = gender;
+        }
+
+        checkLoveSettingsComplete();
+    });
+});
+
+document.querySelectorAll('.relation-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.relation-btn').forEach(b => {
+            b.classList.remove('selected');
+        });
+        btn.classList.add('selected');
+        loveSettings.relation = btn.dataset.relation;
+        checkLoveSettingsComplete();
+    });
+});
+
+function checkLoveSettingsComplete() {
+    const complete = loveSettings.yourGender && loveSettings.partnerGender && loveSettings.relation;
+    document.getElementById('startLoveBtn').disabled = !complete;
+}
+
+// 恋愛占い開始
+document.getElementById('startLoveBtn').addEventListener('click', () => {
+    loveSetupSection.classList.add('hidden');
+    startReading();
 });
 
 // 占い開始
@@ -754,30 +978,57 @@ async function startReading() {
     spreadHint.dataset.loading = 'true';
     spreadHint.textContent = 'カードを準備中...';
 
-    // カードスプレッドを生成（クリック無効状態）
+    // カードスプレッドを生成（初期状態は非表示）
     cardSpread.innerHTML = '';
     cardSpread.classList.add('loading');
+
     for (let i = 0; i < 22; i++) {
         const card = document.createElement('div');
         card.className = 'spread-card loading';
         card.dataset.index = i;
-        card.style.animationDelay = `${i * 0.05}s`;
+        // ランダムな回転を設定
+        const rotation = (Math.random() - 0.5) * 10;
+        card.style.setProperty('--card-rotation', `${rotation}deg`);
         cardSpread.appendChild(card);
     }
 
     // 全画像をプリロード
     await preloadAllImages();
 
-    // ローディング完了 - カードを有効化
+    // ローディング完了 - カードを配る演出
     spreadHint.dataset.loading = 'false';
-    spreadHint.textContent = modeConfig[currentMode].hint;
+    spreadHint.textContent = 'カードを配っています...';
     cardSpread.classList.remove('loading');
 
-    // カードにクリックイベントを追加
+    // カードを順番に飛ばして配置
     const cards = cardSpread.querySelectorAll('.spread-card');
+    await dealCards(cards);
+
+    // ヒントを表示
+    spreadHint.textContent = modeConfig[currentMode].hint;
+
+    // カードにクリックイベントを追加
     cards.forEach((card, i) => {
         card.classList.remove('loading');
         card.addEventListener('click', () => selectCard(card, i));
+    });
+}
+
+// カードを配る演出
+function dealCards(cards) {
+    return new Promise((resolve) => {
+        let dealt = 0;
+        const totalCards = cards.length;
+
+        cards.forEach((card, i) => {
+            setTimeout(() => {
+                card.classList.add('dealt');
+                dealt++;
+                if (dealt >= totalCards) {
+                    setTimeout(resolve, 300);
+                }
+            }, i * 60); // 60msごとに1枚ずつ
+        });
     });
 }
 
@@ -794,4 +1045,23 @@ document.addEventListener('DOMContentLoaded', () => {
     initParticles();
     animateParticles();
     initBackgroundCrossfade();
+    initBGM();
 });
+
+// BGM初期化
+function initBGM() {
+    bgm.volume = 0.5;
+
+    bgmToggle.addEventListener('click', () => {
+        if (bgmPlaying) {
+            bgm.pause();
+            bgmToggle.classList.remove('playing');
+            bgmToggle.querySelector('.bgm-icon').textContent = '🔇';
+        } else {
+            bgm.play().catch(e => console.log('BGM再生エラー:', e));
+            bgmToggle.classList.add('playing');
+            bgmToggle.querySelector('.bgm-icon').textContent = '🔊';
+        }
+        bgmPlaying = !bgmPlaying;
+    });
+}

@@ -106,6 +106,39 @@ header {
     opacity: 1;
 }
 
+/* BGM Toggle */
+.bgm-toggle {
+    position: fixed;
+    top: 1rem;
+    right: 2rem;
+    width: 44px;
+    height: 44px;
+    background: rgba(74, 14, 78, 0.6);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.bgm-toggle:hover {
+    background: rgba(74, 14, 78, 0.8);
+    border-color: var(--primary-gold);
+    transform: scale(1.1);
+}
+
+.bgm-toggle.playing {
+    border-color: var(--primary-gold);
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+}
+
+.bgm-icon {
+    font-size: 1.2rem;
+}
+
 /* ==================================
    Main Container
    ================================== */
@@ -332,6 +365,97 @@ main {
 }
 
 /* ==================================
+   Love Setup Section
+   ================================== */
+
+.love-setup-section {
+    text-align: center;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+.setup-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    color: var(--primary-gold);
+    margin-bottom: 2rem;
+    text-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+}
+
+.gender-selection {
+    max-width: 500px;
+    margin: 0 auto 2rem;
+}
+
+.gender-group {
+    margin-bottom: 1.5rem;
+}
+
+.gender-group label {
+    display: block;
+    font-size: 1rem;
+    color: var(--text-light);
+    margin-bottom: 0.8rem;
+    opacity: 0.9;
+}
+
+.gender-buttons, .relation-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.gender-btn, .relation-btn {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+    font-family: 'Noto Sans JP', sans-serif;
+    color: var(--text-light);
+    background: rgba(74, 14, 78, 0.4);
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.gender-btn:hover, .relation-btn:hover {
+    background: rgba(74, 14, 78, 0.6);
+    border-color: var(--primary-gold);
+}
+
+.gender-btn.selected, .relation-btn.selected {
+    background: linear-gradient(135deg, var(--primary-gold), #ffd700);
+    color: var(--deep-purple);
+    border-color: var(--primary-gold);
+    font-weight: 700;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+}
+
+.start-love-btn {
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-weight: 700;
+    color: var(--deep-purple);
+    background: linear-gradient(135deg, var(--primary-gold), #ffd700);
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.4);
+}
+
+.start-love-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+.start-love-btn:not(:disabled):hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 0 40px rgba(212, 175, 55, 0.6);
+}
+
+/* ==================================
    Card Spread Section
    ================================== */
 
@@ -363,6 +487,26 @@ main {
     perspective: 1000px;
 }
 
+/* Card Deck (initial stack) */
+.card-deck {
+    position: relative;
+    width: 80px;
+    height: 130px;
+    margin: 2rem auto;
+}
+
+.deck-card {
+    position: absolute;
+    width: 80px;
+    height: 130px;
+    background-image: url('assets/cards/card_back.png');
+    background-size: cover;
+    background-position: center;
+    border-radius: 10px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s ease;
+}
+
 /* Spread Cards */
 .spread-card {
     width: 60px;
@@ -377,6 +521,13 @@ main {
     position: relative;
     transform-style: preserve-3d;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    opacity: 0;
+    transform: translateY(-200px) rotate(0deg) scale(0.5);
+}
+
+.spread-card.dealt {
+    opacity: 1;
+    transform: translateY(0) rotate(var(--card-rotation, 0deg)) scale(1);
 }
 
 .spread-card:hover:not(.loading) {
@@ -553,6 +704,8 @@ main {
     line-height: 1.8;
     color: var(--text-light);
     opacity: 0.9;
+    white-space: pre-wrap;
+    text-align: left;
 }
 
 /* Multi Card Display */
