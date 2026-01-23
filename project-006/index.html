@@ -35,6 +35,49 @@
                 </button>
             </section>
 
+            <!-- モード選択画面 -->
+            <section class="mode-section hidden" id="modeSection">
+                <h2 class="mode-title">何を占いますか？</h2>
+                <div class="mode-grid">
+                    <div class="mode-card" data-mode="daily">
+                        <div class="mode-banner">
+                            <img src="assets/banners/daily.png" alt="今日の運勢">
+                        </div>
+                        <div class="mode-info">
+                            <h3>今日の運勢</h3>
+                            <p>1枚引き</p>
+                        </div>
+                    </div>
+                    <div class="mode-card" data-mode="love">
+                        <div class="mode-banner">
+                            <img src="assets/banners/love.png" alt="恋愛占い">
+                        </div>
+                        <div class="mode-info">
+                            <h3>恋愛占い</h3>
+                            <p>2枚引き</p>
+                        </div>
+                    </div>
+                    <div class="mode-card" data-mode="time">
+                        <div class="mode-banner">
+                            <img src="assets/banners/time.png" alt="過去・現在・未来">
+                        </div>
+                        <div class="mode-info">
+                            <h3>過去・現在・未来</h3>
+                            <p>3枚引き</p>
+                        </div>
+                    </div>
+                    <div class="mode-card" data-mode="career">
+                        <div class="mode-banner">
+                            <img src="assets/banners/career.png" alt="仕事運">
+                        </div>
+                        <div class="mode-info">
+                            <h3>仕事運</h3>
+                            <p>1枚引き</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- カード選択画面 -->
             <section class="spread-section hidden" id="spreadSection">
                 <h2 class="spread-title">カードを選んでください</h2>
@@ -46,6 +89,7 @@
 
             <!-- 結果画面 -->
             <section class="result-section hidden" id="resultSection">
+                <!-- シングルカード表示 -->
                 <div class="result-card-container">
                     <div class="result-card" id="resultCard">
                         <div class="card-inner">
@@ -60,14 +104,19 @@
                     <div class="position-badge" id="positionBadge"></div>
                 </div>
 
+                <!-- マルチカード表示 -->
+                <div class="multi-card-container" id="multiCardResult" style="display: none;">
+                    <!-- JSで生成 -->
+                </div>
+
                 <div class="result-content" id="resultContent">
                     <h2 class="result-title" id="resultTitle"></h2>
-                    <div class="result-meaning">
+                    <div class="result-meaning" id="resultMeaningSection">
                         <h3>カードの意味</h3>
                         <p id="cardMeaning"></p>
                     </div>
                     <div class="result-advice">
-                        <h3>今日のアドバイス</h3>
+                        <h3>アドバイス</h3>
                         <p id="cardAdvice"></p>
                     </div>
                 </div>

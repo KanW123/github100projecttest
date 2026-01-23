@@ -338,6 +338,7 @@ const majorArcana = [
 
 // DOM要素
 const introSection = document.getElementById('introSection');
+const modeSection = document.getElementById('modeSection');
 const spreadSection = document.getElementById('spreadSection');
 const resultSection = document.getElementById('resultSection');
 const startBtn = document.getElementById('startBtn');
@@ -346,6 +347,41 @@ const cardSpread = document.getElementById('cardSpread');
 const resultCard = document.getElementById('resultCard');
 const bgImage1 = document.getElementById('bgImage1');
 const bgImage2 = document.getElementById('bgImage2');
+
+// 現在の占いモード
+let currentMode = 'daily';
+let selectedCards = [];
+let cardsToSelect = 1;
+
+// モード設定
+const modeConfig = {
+    daily: {
+        title: '今日の運勢',
+        cards: 1,
+        hint: '直感を信じて、1枚のカードをタップしてください',
+        resultTitle: (card) => `${card.nameJa}（${card.name}）`
+    },
+    love: {
+        title: '恋愛占い',
+        cards: 2,
+        hint: 'あなたのカードと相手のカードを選んでください（2枚）',
+        labels: ['あなた', '相手'],
+        resultTitle: () => '恋愛の相性'
+    },
+    time: {
+        title: '過去・現在・未来',
+        cards: 3,
+        hint: '3枚のカードを順番に選んでください',
+        labels: ['過去', '現在', '未来'],
+        resultTitle: () => '時の流れ'
+    },
+    career: {
+        title: '仕事運',
+        cards: 1,
+        hint: '直感を信じて、1枚のカードをタップしてください',
+        resultTitle: (card) => `${card.nameJa}（${card.name}）`
+    }
+};
 
 // パーティクルキャンバス
 const canvas = document.getElementById('particles');
@@ -459,53 +495,152 @@ function selectCard(cardElement, index) {
     // 選択アニメーション
     cardElement.classList.add('selected');
 
-    // 他のカードをフェードアウト
-    const allCards = document.querySelectorAll('.spread-card');
-    allCards.forEach((c, i) => {
-        if (i !== index) {
-            c.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
-            c.style.opacity = '0';
-            c.style.transform = 'scale(0.8)';
-        }
-    });
-
     // ランダムにカードを選ぶ（シャッフル効果）
-    const selectedCardIndex = Math.floor(Math.random() * majorArcana.length);
+    let selectedCardIndex;
+    do {
+        selectedCardIndex = Math.floor(Math.random() * majorArcana.length);
+    } while (selectedCards.some(c => c.cardIndex === selectedCardIndex));
+
     const isReversed = Math.random() < 0.3; // 30%の確率で逆位置
 
-    setTimeout(() => {
-        showResult(selectedCardIndex, isReversed);
-    }, 800);
+    selectedCards.push({
+        cardIndex: selectedCardIndex,
+        isReversed: isReversed
+    });
+
+    // ヒントを更新
+    const spreadHint = document.querySelector('.spread-hint');
+    const remaining = cardsToSelect - selectedCards.length;
+
+    if (remaining > 0) {
+        // まだ選ぶカードがある
+        const labels = modeConfig[currentMode].labels;
+        if (labels) {
+            spreadHint.textContent = `${labels[selectedCards.length]}のカードを選んでください`;
+        } else {
+            spreadHint.textContent = `あと${remaining}枚選んでください`;
+        }
+    } else {
+        // 全部選んだ - 他のカードをフェードアウト
+        const allCards = document.querySelectorAll('.spread-card');
+        allCards.forEach((c) => {
+            if (!c.classList.contains('selected')) {
+                c.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                c.style.opacity = '0';
+                c.style.transform = 'scale(0.8)';
+            }
+        });
+
+        setTimeout(() => {
+            showResult();
+        }, 800);
+    }
 }
 
 // 結果表示
-function showResult(cardIndex, isReversed) {
-    const card = majorArcana[cardIndex];
-
-    // DOM要素更新 - カード画像を表示
-    document.getElementById('cardImage').src = card.image;
-    document.getElementById('cardImage').alt = card.name;
-
-    const position = isReversed ? '逆位置' : '正位置';
-    document.getElementById('positionBadge').textContent = position;
-    document.getElementById('resultTitle').textContent = `${card.nameJa}（${card.name}）`;
-
-    const reading = isReversed ? card.reversed : card.upright;
-    document.getElementById('cardMeaning').textContent = reading.meaning;
-    document.getElementById('cardAdvice').textContent = reading.advice;
+function showResult() {
+    const config = modeConfig[currentMode];
 
     // セクション切り替え
     spreadSection.classList.add('hidden');
     resultSection.classList.remove('hidden');
 
-    // カードフリップアニメーション
-    setTimeout(() => {
-        if (isReversed) {
-            resultCard.classList.add('reversed');
-        } else {
-            resultCard.classList.add('flipped');
-        }
-    }, 300);
+    if (selectedCards.length === 1) {
+        // シングルカード表示
+        const { cardIndex, isReversed } = selectedCards[0];
+        const card = majorArcana[cardIndex];
+
+        document.getElementById('cardImage').src = card.image;
+        document.getElementById('cardImage').alt = card.name;
+
+        const position = isReversed ? '逆位置' : '正位置';
+        document.getElementById('positionBadge').textContent = position;
+        document.getElementById('resultTitle').textContent = config.resultTitle(card);
+
+        const reading = isReversed ? card.reversed : card.upright;
+        document.getElementById('cardMeaning').textContent = reading.meaning;
+        document.getElementById('cardAdvice').textContent = reading.advice;
+
+        // シングルカード表示
+        document.querySelector('.result-card-container').style.display = '';
+        document.getElementById('multiCardResult').style.display = 'none';
+
+        // カードフリップアニメーション
+        setTimeout(() => {
+            if (isReversed) {
+                resultCard.classList.add('reversed');
+            } else {
+                resultCard.classList.add('flipped');
+            }
+        }, 300);
+    } else {
+        // マルチカード表示
+        document.querySelector('.result-card-container').style.display = 'none';
+        document.getElementById('multiCardResult').style.display = '';
+        document.getElementById('resultTitle').textContent = config.resultTitle();
+
+        const multiContainer = document.getElementById('multiCardResult');
+        multiContainer.innerHTML = '';
+
+        selectedCards.forEach((selection, i) => {
+            const { cardIndex, isReversed } = selection;
+            const card = majorArcana[cardIndex];
+            const reading = isReversed ? card.reversed : card.upright;
+            const label = config.labels ? config.labels[i] : `カード ${i + 1}`;
+
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'multi-card-item';
+            cardDiv.innerHTML = `
+                <div class="multi-card-label">${label}</div>
+                <div class="multi-card ${isReversed ? 'reversed' : ''}">
+                    <img src="${card.image}" alt="${card.name}">
+                </div>
+                <div class="multi-card-name">${card.nameJa}</div>
+                <div class="multi-card-position">${isReversed ? '逆位置' : '正位置'}</div>
+                <div class="multi-card-meaning">${reading.meaning}</div>
+            `;
+            multiContainer.appendChild(cardDiv);
+
+            // カード登場アニメーション
+            setTimeout(() => {
+                cardDiv.classList.add('visible');
+            }, 300 + i * 400);
+        });
+
+        // アドバイス生成（複数カードの場合）
+        generateMultiCardAdvice();
+    }
+}
+
+// マルチカードのアドバイス生成
+function generateMultiCardAdvice() {
+    const config = modeConfig[currentMode];
+    let advice = '';
+
+    if (currentMode === 'love') {
+        const you = selectedCards[0];
+        const partner = selectedCards[1];
+        const yourCard = majorArcana[you.cardIndex];
+        const partnerCard = majorArcana[partner.cardIndex];
+
+        advice = `あなたは「${yourCard.nameJa}」、相手は「${partnerCard.nameJa}」。`;
+        advice += you.isReversed
+            ? `あなたは${yourCard.reversed.meaning.slice(0, 30)}...。`
+            : `あなたは${yourCard.upright.meaning.slice(0, 30)}...。`;
+        advice += partner.isReversed
+            ? `相手は${partnerCard.reversed.meaning.slice(0, 30)}...の状態です。`
+            : `相手は${partnerCard.upright.meaning.slice(0, 30)}...の状態です。`;
+    } else if (currentMode === 'time') {
+        const past = majorArcana[selectedCards[0].cardIndex];
+        const present = majorArcana[selectedCards[1].cardIndex];
+        const future = majorArcana[selectedCards[2].cardIndex];
+
+        advice = `過去に「${past.nameJa}」を経験し、現在「${present.nameJa}」の状態にあります。`;
+        advice += `未来には「${future.nameJa}」が待っています。`;
+    }
+
+    document.getElementById('cardAdvice').textContent = advice;
+    document.getElementById('cardMeaning').textContent = '';
 }
 
 // ローマ数字変換
@@ -530,6 +665,9 @@ function resetReading() {
     // 結果カードのクラスをリセット
     resultCard.classList.remove('flipped', 'reversed');
 
+    // 選択状態リセット
+    selectedCards = [];
+
     // アニメーションのリセット
     document.getElementById('positionBadge').style.animation = 'none';
     document.getElementById('resultContent').style.animation = 'none';
@@ -538,23 +676,14 @@ function resetReading() {
     // 強制リフロー
     void document.getElementById('positionBadge').offsetWidth;
 
-    // セクション切り替え
+    // セクション切り替え（モード選択に戻る）
     resultSection.classList.add('hidden');
-    spreadSection.classList.remove('hidden');
+    modeSection.classList.remove('hidden');
 
-    // カードスプレッドを再生成（画像は既にキャッシュ済み）
-    cardSpread.innerHTML = '';
-    const spreadHint = document.querySelector('.spread-hint');
-    spreadHint.textContent = '直感を信じて、1枚のカードをタップしてください';
-
-    for (let i = 0; i < 22; i++) {
-        const card = document.createElement('div');
-        card.className = 'spread-card';
-        card.dataset.index = i;
-        card.style.animationDelay = `${i * 0.05}s`;
-        card.addEventListener('click', () => selectCard(card, i));
-        cardSpread.appendChild(card);
-    }
+    // マルチカード表示リセット
+    document.getElementById('multiCardResult').innerHTML = '';
+    document.getElementById('multiCardResult').style.display = 'none';
+    document.querySelector('.result-card-container').style.display = '';
 
     // アニメーションを再適用
     setTimeout(() => {
@@ -595,16 +724,35 @@ function preloadAllImages() {
     });
 }
 
-// イベントリスナー
+// モード選択画面へ
 startBtn.addEventListener('click', async () => {
     introSection.classList.add('hidden');
+    modeSection.classList.remove('hidden');
+
+    // 画像をバックグラウンドでプリロード開始
+    preloadAllImages();
+});
+
+// モードカードのクリックイベント
+document.querySelectorAll('.mode-card').forEach(card => {
+    card.addEventListener('click', () => {
+        currentMode = card.dataset.mode;
+        selectedCards = [];
+        cardsToSelect = modeConfig[currentMode].cards;
+        startReading();
+    });
+});
+
+// 占い開始
+async function startReading() {
+    modeSection.classList.add('hidden');
     spreadSection.classList.remove('hidden');
 
-    // ローディング状態を表示
+    // タイトルとヒントを更新
+    document.querySelector('.spread-title').textContent = modeConfig[currentMode].title;
     const spreadHint = document.querySelector('.spread-hint');
-    const originalText = spreadHint.textContent;
     spreadHint.dataset.loading = 'true';
-    spreadHint.textContent = 'カードを準備中... 0%';
+    spreadHint.textContent = 'カードを準備中...';
 
     // カードスプレッドを生成（クリック無効状態）
     cardSpread.innerHTML = '';
@@ -622,7 +770,7 @@ startBtn.addEventListener('click', async () => {
 
     // ローディング完了 - カードを有効化
     spreadHint.dataset.loading = 'false';
-    spreadHint.textContent = originalText;
+    spreadHint.textContent = modeConfig[currentMode].hint;
     cardSpread.classList.remove('loading');
 
     // カードにクリックイベントを追加
@@ -631,7 +779,7 @@ startBtn.addEventListener('click', async () => {
         card.classList.remove('loading');
         card.addEventListener('click', () => selectCard(card, i));
     });
-});
+}
 
 retryBtn.addEventListener('click', resetReading);
 

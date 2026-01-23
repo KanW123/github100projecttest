@@ -242,6 +242,96 @@ main {
 }
 
 /* ==================================
+   Mode Selection Section
+   ================================== */
+
+.mode-section {
+    text-align: center;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+.mode-title {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    color: var(--primary-gold);
+    margin-bottom: 2rem;
+    text-shadow: 0 0 30px rgba(212, 175, 55, 0.3);
+}
+
+.mode-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+.mode-card {
+    background: rgba(74, 14, 78, 0.4);
+    border-radius: 16px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+}
+
+.mode-card:hover {
+    transform: translateY(-10px) scale(1.02);
+    box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.4),
+        0 0 40px rgba(139, 92, 246, 0.3);
+    border-color: rgba(212, 175, 55, 0.5);
+}
+
+.mode-banner {
+    width: 100%;
+    height: 120px;
+    overflow: hidden;
+}
+
+.mode-banner img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.mode-card:hover .mode-banner img {
+    transform: scale(1.1);
+}
+
+.mode-info {
+    padding: 1rem;
+    text-align: center;
+}
+
+.mode-info h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+    color: var(--text-gold);
+    margin-bottom: 0.3rem;
+}
+
+.mode-info p {
+    font-size: 0.85rem;
+    color: var(--text-light);
+    opacity: 0.7;
+}
+
+@media (max-width: 600px) {
+    .mode-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .mode-banner {
+        height: 100px;
+    }
+}
+
+/* ==================================
    Card Spread Section
    ================================== */
 
@@ -280,21 +370,20 @@ main {
     background-image: url('assets/cards/card_back.png');
     background-size: cover;
     background-position: center;
-    border: 2px solid var(--primary-gold);
+    border: none;
     border-radius: 8px;
     cursor: pointer;
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
     transform-style: preserve-3d;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
 }
 
 .spread-card:hover:not(.loading) {
     transform: translateY(-20px) rotateY(10deg);
     box-shadow:
-        0 20px 40px rgba(0, 0, 0, 0.4),
-        0 0 30px rgba(212, 175, 55, 0.3);
-    border-color: var(--text-gold);
+        0 20px 40px rgba(0, 0, 0, 0.5),
+        0 0 30px rgba(139, 92, 246, 0.4);
 }
 
 /* Loading State */
@@ -373,10 +462,8 @@ main {
 
 /* Card Back */
 .card-back {
-    border: 3px solid var(--primary-gold);
-    box-shadow:
-        0 10px 40px rgba(0, 0, 0, 0.5),
-        inset 0 0 30px rgba(212, 175, 55, 0.1);
+    border: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     overflow: hidden;
 }
 
@@ -391,11 +478,11 @@ main {
 
 /* Card Front */
 .card-front {
-    border: 3px solid var(--primary-gold);
+    border: none;
     transform: rotateY(180deg);
     box-shadow:
         0 10px 40px rgba(0, 0, 0, 0.5),
-        0 0 60px rgba(139, 92, 246, 0.2);
+        0 0 60px rgba(139, 92, 246, 0.3);
 }
 
 .card-image {
@@ -466,6 +553,87 @@ main {
     line-height: 1.8;
     color: var(--text-light);
     opacity: 0.9;
+}
+
+/* Multi Card Display */
+.multi-card-container {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+}
+
+.multi-card-item {
+    text-align: center;
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.multi-card-item.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.multi-card-label {
+    font-family: 'Cinzel', serif;
+    color: var(--primary-gold);
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 0 10px rgba(212, 175, 55, 0.3);
+}
+
+.multi-card {
+    width: 140px;
+    height: 238px;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    margin: 0 auto 0.5rem;
+}
+
+.multi-card.reversed {
+    transform: rotate(180deg);
+}
+
+.multi-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.multi-card-name {
+    font-family: 'Cinzel', serif;
+    color: var(--text-gold);
+    font-size: 0.9rem;
+    margin-bottom: 0.2rem;
+}
+
+.multi-card-position {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    opacity: 0.7;
+    margin-bottom: 0.5rem;
+}
+
+.multi-card-meaning {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    opacity: 0.8;
+    max-width: 160px;
+    line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+    .multi-card {
+        width: 100px;
+        height: 170px;
+    }
+
+    .multi-card-meaning {
+        display: none;
+    }
 }
 
 /* Retry Button */
