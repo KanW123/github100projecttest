@@ -542,8 +542,19 @@ function resetReading() {
     resultSection.classList.add('hidden');
     spreadSection.classList.remove('hidden');
 
-    // カードスプレッドを再生成
-    createCardSpread();
+    // カードスプレッドを再生成（画像は既にキャッシュ済み）
+    cardSpread.innerHTML = '';
+    const spreadHint = document.querySelector('.spread-hint');
+    spreadHint.textContent = '直感を信じて、1枚のカードをタップしてください';
+
+    for (let i = 0; i < 22; i++) {
+        const card = document.createElement('div');
+        card.className = 'spread-card';
+        card.dataset.index = i;
+        card.style.animationDelay = `${i * 0.05}s`;
+        card.addEventListener('click', () => selectCard(card, i));
+        cardSpread.appendChild(card);
+    }
 
     // アニメーションを再適用
     setTimeout(() => {
@@ -553,11 +564,73 @@ function resetReading() {
     }, 100);
 }
 
+// 画像プリロード
+function preloadAllImages() {
+    return new Promise((resolve) => {
+        const imagePaths = [
+            ...majorArcana.map(card => card.image),
+            'assets/cards/card_back.png'
+        ];
+
+        let loadedCount = 0;
+        const totalImages = imagePaths.length;
+
+        imagePaths.forEach(path => {
+            const img = new Image();
+            img.onload = img.onerror = () => {
+                loadedCount++;
+                // プログレス更新
+                const progress = Math.round((loadedCount / totalImages) * 100);
+                const loadingText = document.querySelector('.spread-hint');
+                if (loadingText && loadingText.dataset.loading === 'true') {
+                    loadingText.textContent = `カードを準備中... ${progress}%`;
+                }
+
+                if (loadedCount >= totalImages) {
+                    resolve();
+                }
+            };
+            img.src = path;
+        });
+    });
+}
+
 // イベントリスナー
-startBtn.addEventListener('click', () => {
+startBtn.addEventListener('click', async () => {
     introSection.classList.add('hidden');
     spreadSection.classList.remove('hidden');
-    createCardSpread();
+
+    // ローディング状態を表示
+    const spreadHint = document.querySelector('.spread-hint');
+    const originalText = spreadHint.textContent;
+    spreadHint.dataset.loading = 'true';
+    spreadHint.textContent = 'カードを準備中... 0%';
+
+    // カードスプレッドを生成（クリック無効状態）
+    cardSpread.innerHTML = '';
+    cardSpread.classList.add('loading');
+    for (let i = 0; i < 22; i++) {
+        const card = document.createElement('div');
+        card.className = 'spread-card loading';
+        card.dataset.index = i;
+        card.style.animationDelay = `${i * 0.05}s`;
+        cardSpread.appendChild(card);
+    }
+
+    // 全画像をプリロード
+    await preloadAllImages();
+
+    // ローディング完了 - カードを有効化
+    spreadHint.dataset.loading = 'false';
+    spreadHint.textContent = originalText;
+    cardSpread.classList.remove('loading');
+
+    // カードにクリックイベントを追加
+    const cards = cardSpread.querySelectorAll('.spread-card');
+    cards.forEach((card, i) => {
+        card.classList.remove('loading');
+        card.addEventListener('click', () => selectCard(card, i));
+    });
 });
 
 retryBtn.addEventListener('click', resetReading);
