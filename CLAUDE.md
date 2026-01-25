@@ -271,6 +271,55 @@ curl -X POST \
 
 ---
 
+## 素材管理ルール（ASSETS.md）
+
+### なぜ必要か
+- 「同じスタイルで追加の素材を」と言われた時、元のプロンプトがないと再現できない
+- 後から見返した時に、どの素材がどう作られたか分からなくなる
+
+### ルール
+各プロジェクトで画像・動画・音声などを生成したら、**必ず `project-XXX/ASSETS.md` に記録する**
+
+### 記録項目
+
+```markdown
+## 素材一覧
+
+| ファイル名 | 生成手法 | プロンプト | 日付 | 備考 |
+|-----------|---------|-----------|------|------|
+| cards/the_fool.png | Midjourney | Tarot card The Fool, Art Nouveau style... | 2026-01-23 | 縦長 |
+| bg1.png | OpenAI gpt-image-1.5 | Cosmic nebula background... | 2026-01-23 | |
+```
+
+### 生成手法の表記
+- `Midjourney` - Midjourney Web/Discord
+- `OpenAI gpt-image-1` / `OpenAI gpt-image-1.5` - OpenAI Image Generation
+- `Gemini Imagen` - Google Imagen
+- `SORA` - OpenAI Video Generation
+- `Manual` - 手動作成（Pillow等）
+- `External` - 外部素材（フリー素材等、出典を備考に）
+
+### Midjourney使用時の注意
+- **プロンプトは必ずコピペで記録**（後から参照できない）
+- スタイル参照（--sref）使用時はそのURLも記録
+- ジョブIDがあれば記録（後から同じ設定で再生成可能）
+
+### 共通スタイルがある場合
+素材に共通スタイルがある場合は、テンプレートも記録：
+
+```markdown
+## 共通スタイル
+
+### タロットカード共通
+```
+Tarot card [カード名], French Art Nouveau style by Alphonse Mucha,
+ornate golden borders, [カード固有の描写],
+vintage mystical illustration, decorative frame --ar 2:3
+```
+```
+
+---
+
 ## 知見の蓄積場所
 
 | カテゴリ | ファイル |
@@ -278,6 +327,7 @@ curl -X POST \
 | 画像・動画生成 | `ImageGenerator/GENERATION_GUIDE.md` |
 | AI画像生成（Claude Code Web） | `docs/AI_IMAGE_GENERATION.md` |
 | アイソメトリックタイルゲーム | `docs/ISOMETRIC_TILE_GAME.md` |
+| **素材管理** | `project-XXX/ASSETS.md`（各プロジェクト） |
 | プロジェクト全体 | この `CLAUDE.md` |
 
 新しい知見を得たら、該当ファイルに追記していくこと。
