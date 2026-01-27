@@ -324,7 +324,8 @@ vintage mystical illustration, decorative frame --ar 2:3
 
 | カテゴリ | ファイル |
 |----------|----------|
-| 画像・動画生成 | `ImageGenerator/GENERATION_GUIDE.md` |
+| 画像生成 | `ImageGenerator/GENERATION_GUIDE.md` |
+| **動画生成** | `VideoGenerator/VIDEO_GENERATION_GUIDE.md` |
 | AI画像生成（Claude Code Web） | `docs/AI_IMAGE_GENERATION.md` |
 | アイソメトリックタイルゲーム | `docs/ISOMETRIC_TILE_GAME.md` |
 | **素材管理** | `project-XXX/ASSETS.md`（各プロジェクト） |
