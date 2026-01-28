@@ -1,20 +1,20 @@
 // ゲーム状態
 const state = {
-    location: '廊下',
-    knowledge: [],      // 知っていること
-    talked: {},         // 誰と話したか
-    scenarioStep: {}    // 各キャラとの会話進行
+    location: null,
+    flags: {},         // フラグ管理
+    scenarioStep: {},  // 各キャラとの会話進行
+    gamePhase: 'opening' // 'opening', 'explore', 'ending'
 };
 
 // 場所データ
 const locations = {
     '廊下': {
-        description: '蒸気が立ち込める薄暗い廊下。どこへ向かう？',
+        description: '薄暗い廊下。蒸気が立ち込めている。\n服が濡れている。夢...？',
         connections: ['バー', '階段下', '魚屋'],
         character: null
     },
     'バー': {
-        description: '水槽のある薄暗いバー。カウンターにトゲだらけの男がいる。',
+        description: '水槽のある薄暗いバー。\nカウンターにトゲだらけの男がいる。',
         connections: ['廊下'],
         character: 'マスター'
     },
@@ -29,7 +29,7 @@ const locations = {
         character: null
     },
     '老婆の部屋': {
-        description: '狭い部屋。背中から蒸気パイプが生えた老婆がいる。',
+        description: '狭い部屋。\n背中から蒸気パイプが生えた老婆がいる。\n片目が——時計の文字盤になっている。',
         connections: ['階段上'],
         character: '老婆'
     },
@@ -40,79 +40,120 @@ const locations = {
     }
 };
 
-// 会話データ（短く、核心的に）
+// オープニングシーケンス
+const openingSequence = [
+    {
+        text: `水の中にいる。\n\n息ができない。`,
+        choices: [{ text: '...', next: 1 }]
+    },
+    {
+        text: `見下ろすと、巨大な時計仕掛けが見える。\n\nそして——無数の人影が浮かんでいる。`,
+        choices: [{ text: '...', next: 2 }]
+    },
+    {
+        text: `全員、同じ顔をしている。\n\n俺と同じ顔？`,
+        choices: [{ text: '...', next: 3 }]
+    },
+    {
+        text: `——\n\n\n目を開ける。\n\n薄暗い廊下。蒸気が立ち込めている。\n服が濡れている。`,
+        choices: [{ text: '...', next: 4 }]
+    },
+    {
+        text: `手に何か握っている。\n\n古い写真。若い女性が写っている。\n\n誰だ？`,
+        choices: [{ text: '...', next: 5 }]
+    },
+    {
+        text: `わからない。でも——\n\n「この人を探さなきゃ」\n\nなぜかそう思った。`,
+        choices: [{ text: '探し始める', next: 'start_explore' }]
+    }
+];
+
+// 会話データ
 const conversations = {
     'マスター': [
         {
             condition: () => true,
-            text: `「またか」\n\nマスターはグラスを拭きながら言った。\n\n「また迷い込んできたのがいる。ここは出口がないんだ。知ってたか？」`,
+            text: `マスター「......」\n\nカウンターのトゲだらけの男がこちらを見た。\n\nマスター「またお前か」`,
             choices: [
-                { text: '出口がない？', next: 1 },
-                { text: '「また」とは？', next: 2 }
-            ],
-            onFinish: () => addKnowledge('出口がない')
-        },
-        {
-            text: `「この街は閉じてる。外に出た奴はいない」\n\n「——いや、一人だけいた。博士の妻だ。出て行った。そして街が壊れ始めた」`,
-            choices: [{ text: '...', next: 'end' }],
-            onFinish: () => addKnowledge('博士の妻が出て行った')
-        },
-        {
-            text: `「お前の前にも何人か来た。みんな同じ顔してた」\n\n「出口を探して、博士のところへ行って、それっきりだ」`,
-            choices: [
-                { text: '博士は誰だ', next: 3 },
-                { text: '...', next: 'end' }
+                { text: 'また？', next: 1 },
+                { text: '俺を知ってるのか', next: 1 }
             ]
         },
         {
-            text: `「上に住んでる。時計ばっかりいじってる男だ」\n\n「あいつに会いたきゃ、老婆に聞け。階段の上だ」`,
+            text: `マスター「何度目だ？　毎回同じこと聞いて、同じ場所に行って——」\n\nマスター「......まあいい。どうせ覚えてないんだろ」`,
+            choices: [
+                { text: '教えてくれ、何が起きてる', next: 2 },
+                { text: 'この写真の女を知らないか', next: 3 }
+            ]
+        },
+        {
+            text: `マスター「知らない方がいいぞ」\n\nマスター「お前が何者かなんて、知ったところで何も変わらん」\n\nマスター「——上に行け。老婆に聞け。どうせそうするんだろ」`,
             choices: [{ text: '...', next: 'end' }],
-            onFinish: () => addKnowledge('博士は上にいる')
+            onFinish: () => setFlag('metMaster')
+        },
+        {
+            text: `マスターは写真をちらりと見た。\n\nマスター「......知ってる。上にいる」\n\nマスター「でもお前、その女に会いたいのか？　本当に？」`,
+            choices: [{ text: '...', next: 'end' }],
+            onFinish: () => setFlag('metMaster')
         }
     ],
     '魚屋': [
         {
             condition: () => true,
-            text: `「今日も同じ魚だ。昨日も同じ。明日も同じ」\n\n機械の腕が魚を並べ直す。\n\n「お前、新顔だな。いつからいる？」`,
+            text: `機械の腕を持つ店主が、魚を並べている。\n\n店主「ああ、お前か」`,
             choices: [
-                { text: 'さっき来たばかりだ', next: 1 },
-                { text: '覚えていない', next: 1 }
+                { text: '俺を知ってるのか', next: 1 },
+                { text: 'この写真の女を探してる', next: 2 }
             ]
         },
         {
-            text: `「そうか。俺もいつから居るか覚えてない」\n\n「この街じゃ時間が変だ。同じ日が続いてる気がする」\n\n「——でも誰も気にしない。慣れちまった」`,
+            text: `店主「知ってるも何も、毎日来るじゃねえか」\n\n店主「......いや、毎日じゃないか。時々だ」\n\n店主「でも同じ顔して同じこと聞く」`,
             choices: [{ text: '...', next: 'end' }],
-            onFinish: () => addKnowledge('時間がおかしい')
+            onFinish: () => setFlag('metFishmonger')
+        },
+        {
+            text: `店主「その女か」\n\n店主「上で見たぞ。——いや、『見た』っていうか......」\n\n店主「まだ『いる』っていうか......」\n\n店主「お前、上に行くつもりか？　やめとけ」`,
+            choices: [{ text: '...', next: 'end' }],
+            onFinish: () => setFlag('metFishmonger')
         }
     ],
     '老婆': [
         {
-            condition: () => !state.knowledge.includes('博士は上にいる'),
-            text: `老婆はこちらを見ようともしない。\n\n「用があるなら、先に下で聞いてきな」`,
+            condition: () => !hasFlag('metMaster') && !hasFlag('metFishmonger'),
+            text: `老婆はこちらを見ようともしない。\n\n老婆「用があるなら、先に下で聞いてきな」`,
             choices: [{ text: '...', next: 'end' }]
         },
         {
-            condition: () => state.knowledge.includes('博士は上にいる'),
-            text: `「博士に会いたいのか」\n\n老婆の片目が時計の文字盤になっている。\n\n「会ってどうする。あいつは街を壊そうとしてる」`,
+            condition: () => hasFlag('metMaster') || hasFlag('metFishmonger'),
+            text: `老婆「お前、何度目だ？」`,
             choices: [
-                { text: '壊す？', next: 1 },
-                { text: '止められるのか', next: 2 }
-            ],
-            onFinish: () => addKnowledge('博士は街を壊そうとしている')
+                { text: '何度目って、どういう意味だ', next: 2 },
+                { text: 'この写真の女を探してる', next: 3 }
+            ]
         },
         {
-            text: `「あいつの妻が死んだ。いや、出て行った。どっちでも同じだ」\n\n「それから、あいつは時間を巻き戻そうとしてる。妻がいた頃に」\n\n「——でもそうすると、今のこの街は消える。私たちも」`,
-            choices: [{ text: '...', next: 'end' }],
-            onFinish: () => addKnowledge('時間を巻き戻すと街が消える')
+            text: `老婆「毎回聞くな。もう数えてない」\n\n老婆「お前は何度も来る。写真を持って。女を探して」\n\n老婆「そして毎回、同じところに行く」`,
+            choices: [
+                { text: '教えてくれ', next: 4 },
+                { text: '...', next: 'end' }
+            ]
         },
         {
-            text: `「止める？私は止めない。もう何百回もこの会話をした」\n\n「お前が止めるか、止めないか。それだけだ」\n\n「博士の部屋は、この先だ。行くなら行け」`,
+            text: `老婆「知ってる」\n\n老婆「お前が探してるのは——」\n\n老婆「いや、やめておこう」`,
+            choices: [
+                { text: '教えてくれ', next: 4 },
+                { text: '...', next: 'end' }
+            ]
+        },
+        {
+            text: `老婆「お前が探してるのは、お前自身だよ」\n\n老婆「わからんか？　行けばわかる」\n\n老婆「博士の部屋だ。この先にある」`,
             choices: [{ text: '...', next: 'end' }],
             onFinish: () => {
-                addKnowledge('博士の部屋への道');
+                setFlag('metOldWoman');
+                // 博士の部屋を追加
                 locations['老婆の部屋'].connections.push('博士の部屋');
                 locations['博士の部屋'] = {
-                    description: '時計だらけの部屋。中央に巨大な装置。白衣の男がいる。',
+                    description: '時計だらけの部屋。\n\n壁に——人が埋め込まれている。',
                     connections: ['老婆の部屋'],
                     character: '博士'
                 };
@@ -122,38 +163,53 @@ const conversations = {
     '博士': [
         {
             condition: () => true,
-            text: `「来たか」\n\n博士は装置から目を離さない。\n\n「お前も出口を探しに来たんだろう。教えてやる。出口はここだ」\n\n中央の装置を指差す。\n\n「これを動かせば、時間が戻る。妻がいた頃に。そして——」`,
+            text: `女性の上半身。\n肩からケーブルが花びらのように広がっている。\n胸には回転するレンズ。頭部は開いていて、回路が光っている。\n\n写真の女だ。\n\n博士「来たか」\n\n白衣の男が振り返る。\n\n博士「お前が探していた女だ」`,
             choices: [
-                { text: 'そして？', next: 1 },
-                { text: '街が消えるんだろう', next: 2 }
+                { text: 'これが......？', next: 1 },
+                { text: '何をした', next: 2 }
             ]
         },
         {
-            text: `「この街は出られる。お前も、私も」\n\n「ただし、今の街は消える。ここにいる連中も」\n\n「——でも、それの何が悪い？どうせ同じ日を繰り返すだけの街だ」`,
+            text: `博士「妻だ」\n\n博士「時間を守る力を持っていた。この街の時間を」\n\n博士「5年前、俺の実験のせいでこうなった」`,
+            choices: [{ text: '...', next: 3 }]
+        },
+        {
+            text: `博士「俺がこうしたんじゃない。俺の実験の——失敗だ」\n\n博士「妻は時間を守る力を持っていた。その力が暴走した」`,
+            choices: [{ text: '...', next: 3 }]
+        },
+        {
+            text: `博士「だから、時間を巻き戻す。妻がこうなる前に」\n\n博士「——お前も同じだ」`,
             choices: [
-                { text: '彼らにも生活がある', next: 3 },
-                { text: '...確かに', next: 4 }
+                { text: '俺も？', next: 4 },
+                { text: '俺は誰なんだ', next: 4 }
             ]
         },
         {
-            text: `「知ってるのか。老婆に聞いたな」\n\n「そうだ。この街は消える。だから何だ？」\n\n「妻が戻る。それだけでいい」`,
+            text: `博士「お前は何度も来る。時間を巻き戻すたびに」\n\n博士「妻を探して、ここに来て、俺と話して——」\n\n博士「そして消える。また巻き戻される」`,
+            choices: [{ text: '俺は誰なんだ', next: 5 }]
+        },
+        {
+            text: `博士「お前は俺が作った」\n\n博士「妻の記憶から」`,
+            choices: [{ text: '...', next: 6 }],
+            onFinish: () => setFlag('knowsTruth')
+        },
+        {
+            text: `博士「妻が最後に想っていた——『自分を助けに来てくれる誰か』」\n\n博士「その『誰か』を、俺は形にした」\n\n博士「それがお前だ」`,
+            choices: [{ text: '...', next: 7 }]
+        },
+        {
+            text: `博士「お前には妻を探す衝動がある」\n\n博士「でも妻は既にこうなってる」\n\n博士「時間を巻き戻せば、妻は元に戻る」\n\n博士「お前は——消える」`,
             choices: [
-                { text: '彼らにも生活がある', next: 3 },
-                { text: '...', next: 4 }
+                { text: '巻き戻せ', next: 'ending_dawn' },
+                { text: 'やめろ', next: 'ending_eternal' },
+                { text: '俺を消さずに巻き戻す方法は？', next: 8 }
             ]
         },
         {
-            text: `「生活？」博士は笑った。「同じ魚を並べて、同じ酒を注いで、それが生活か？」\n\n「お前はどうする。この装置を止めるか。それとも——」`,
+            text: `博士「ある」\n\n博士「お前が妻の代わりになれ」\n\n博士「時間を守る力を、お前が引き継ぐ」\n\n博士「妻は解放される。お前はここに——永遠に繋がれる」`,
             choices: [
-                { text: '止める', next: 'ending_stop' },
-                { text: '動かせ', next: 'ending_run' }
-            ]
-        },
-        {
-            text: `「そうか」博士は頷いた。\n\n「なら、手伝え。このスイッチを押すだけだ」`,
-            choices: [
-                { text: '押す', next: 'ending_run' },
-                { text: 'やはり止める', next: 'ending_stop' }
+                { text: '俺がなる', next: 'ending_clockkeeper' },
+                { text: '......やはり巻き戻せ', next: 'ending_dawn' }
             ]
         }
     ]
@@ -161,11 +217,17 @@ const conversations = {
 
 // エンディング
 const endings = {
-    'ending_stop': {
-        text: `あなたは装置に手を伸ばし——\n\n電源を引き抜いた。\n\n「......」\n\n博士は何も言わなかった。\n\n装置が止まる。時計の音が消える。\n\n\n——この街に、終わりのない日々が続く。\n\n\n【エンディング: 永遠の住人】`
+    'ending_dawn': {
+        title: '夜明け',
+        text: `博士「......わかった」\n\n装置が動き始める。時計が逆回転する。\n\n自分の体が薄くなっていくのがわかる。\n\n壁の女が——妻が——目を開けた。\n\n「ありがとう」\n\n誰かの声が聞こえた。\n\n——\n\n\nお前は消えた。\n妻は救われた。\nこの街は——なかったことになった。\n\n\n【エンディング: 夜明け】`
     },
-    'ending_run': {
-        text: `スイッチを押した。\n\n装置が唸りを上げる。時計が逆回転を始める。\n\n「ああ......やっと......」\n\n博士の顔に光が戻る。\n\n世界が白く染まっていく——\n\n\n目を開けると、知らない街にいた。\n\n振り返っても、九龍城はどこにもなかった。\n\n\n【エンディング: 夜明け】`
+    'ending_eternal': {
+        title: '永遠の住人',
+        text: `博士「......そうか」\n\n博士「なら、また来い。何度でも」\n\n博士「お前は忘れて、また写真を持って、また来る」\n\n博士「俺は待ってる」\n\n——\n\n目を開ける。\n薄暗い廊下。蒸気が立ち込めている。\n手には古い写真。\n\n「この人を探さなきゃ」\n\n\nお前は永遠にこの街を彷徨う。\n何度も、何度も。\n\n\n【エンディング: 永遠の住人】`
+    },
+    'ending_clockkeeper': {
+        title: '時計守り',
+        text: `博士「......すまない」\n\nケーブルが伸びてくる。\n\n壁に引き寄せられる。体が固定される。\n\n壁の女が——妻が——ゆっくりと落ちてきた。\n\n博士「妻を......頼む」\n\n視界がぼやける。時計の音だけが聞こえる。\n\n——\n\n\nお前は街の時間を守る者になった。\n永遠に。\n\n\n【エンディング: 時計守り】`
     }
 };
 
@@ -176,23 +238,65 @@ const choicesEl = document.getElementById('choices');
 const knowledgeEl = document.getElementById('knowledge-display');
 const movingOverlay = document.getElementById('moving-overlay');
 
-// 知識追加
-function addKnowledge(k) {
-    if (!state.knowledge.includes(k)) {
-        state.knowledge.push(k);
-        updateKnowledgeDisplay();
-    }
+// フラグ管理
+function setFlag(flag) {
+    state.flags[flag] = true;
+    updateKnowledgeDisplay();
+}
+
+function hasFlag(flag) {
+    return state.flags[flag] === true;
 }
 
 function updateKnowledgeDisplay() {
-    knowledgeEl.textContent = state.knowledge.length > 0 ? state.knowledge.join(', ') : 'なし';
+    const flagNames = {
+        'metMaster': 'マスターと話した',
+        'metFishmonger': '魚屋と話した',
+        'metOldWoman': '老婆の話を聞いた',
+        'knowsTruth': '真実を知った'
+    };
+    const active = Object.keys(state.flags)
+        .filter(k => state.flags[k])
+        .map(k => flagNames[k] || k);
+    knowledgeEl.textContent = active.length > 0 ? active.join(', ') : 'なし';
+}
+
+// オープニング表示
+function showOpening(step = 0) {
+    state.gamePhase = 'opening';
+    locationNameEl.textContent = '???';
+
+    const scene = openingSequence[step];
+    textDisplayEl.innerHTML = scene.text.replace(/\n/g, '<br>');
+
+    choicesEl.innerHTML = '';
+    scene.choices.forEach(choice => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.textContent = choice.text;
+        btn.onclick = () => {
+            if (choice.next === 'start_explore') {
+                startExplore();
+            } else {
+                showOpening(choice.next);
+            }
+        };
+        choicesEl.appendChild(btn);
+    });
+}
+
+// 探索開始
+function startExplore() {
+    state.gamePhase = 'explore';
+    state.location = '廊下';
+    showLocation();
 }
 
 // 場所表示
 function showLocation() {
     const loc = locations[state.location];
     locationNameEl.textContent = state.location;
-    textDisplayEl.textContent = loc.description;
+    textDisplayEl.innerHTML = loc.description.replace(/\n/g, '<br>');
 
     choicesEl.innerHTML = '';
 
@@ -254,7 +358,6 @@ function showConversationStep(character, stepIndex) {
     }
 
     if (!step) {
-        // 会話終了、場所に戻る
         showLocation();
         return;
     }
@@ -284,25 +387,33 @@ function showConversationStep(character, stepIndex) {
 
 // エンディング表示
 function showEnding(endingKey) {
+    state.gamePhase = 'ending';
     const ending = endings[endingKey];
+    locationNameEl.textContent = ending.title;
     textDisplayEl.innerHTML = ending.text.replace(/\n/g, '<br>');
 
     choicesEl.innerHTML = '';
     const btn = document.createElement('button');
     btn.className = 'choice-btn';
     btn.textContent = '最初から';
-    btn.onclick = () => {
-        state.location = '廊下';
-        state.knowledge = [];
-        state.talked = {};
-        state.scenarioStep = {};
-        delete locations['博士の部屋'];
-        locations['老婆の部屋'].connections = ['階段上'];
-        updateKnowledgeDisplay();
-        showLocation();
-    };
+    btn.onclick = () => resetGame();
     choicesEl.appendChild(btn);
 }
 
+// ゲームリセット
+function resetGame() {
+    state.location = null;
+    state.flags = {};
+    state.scenarioStep = {};
+    state.gamePhase = 'opening';
+
+    // 博士の部屋を削除
+    delete locations['博士の部屋'];
+    locations['老婆の部屋'].connections = ['階段上'];
+
+    updateKnowledgeDisplay();
+    showOpening(0);
+}
+
 // 開始
-showLocation();
+showOpening(0);

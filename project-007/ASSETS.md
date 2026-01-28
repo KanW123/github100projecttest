@@ -280,6 +280,45 @@ the automatic door opens, walking through
 First-person camera in games, handheld camera, [動作の説明], no hands visible
 ```
 
+## ビジュアル方向性（参考プロンプト）
+
+### 通常パート向け
+
+シーン背景や、穏やかな雰囲気の場所。ただし不気味さは残す。
+
+**人体パーツ店**
+```
+local dummy human body parts and eyes market shop in strange steampunk world, Nighttime Kowloon Walled City, photo, cannon
+```
+
+**モニター顔の少女**
+```
+a surreal upper body of a girl suspended in front of a metal wall by dozens of thin surgical tubes and black wires, her torso semi-transparent with visible slow-rotating gears and flickering lights inside, her face replaced with a small analog monitor displaying cryptic symbols, arms posed as if frozen mid-speech, surrounded by decayed cables and faded red talismans, photorealistic, garage kit aesthetic, eerie and sacred
+```
+
+### 激しいシーン向け
+
+シナリオの山場、衝撃シーン、クライマックス用。
+
+**水中時計機構**
+```
+Infinite reflective water surface, massive underwater clockwork mechanism visible beneath, steampunk aesthetic, countless humanoid figures with identical faces submerged underwater, dark teal and copper color palette, distant glowing lights, ethereal atmosphere, impossible architecture fragments floating in space, mist hovering over water, dramatic lighting, hyper-detailed, cinematic, surreal, 8k
+```
+
+**壁埋め込み人型（祭壇）**
+```
+a disturbing upper body of a humanoid figure embedded in a wall, with mechanical cables spreading out from the shoulders like flower petals, the head partially open showing exposed glowing circuits, arms raised in a ritualistic pose, chest replaced with a rotating lens, surrounded by rusted plaques, kanji inscriptions, and candles, photorealistic, surreal industrial altar, Giger x steampunk
+```
+
+### ビジュアル方針まとめ
+
+| カテゴリ | 特徴 | 用途 |
+|---------|------|------|
+| **通常パート** | 九龍城スチームパンク基調、不気味だが日常 | 探索中の背景、NPC会話 |
+| **激しいシーン** | 超常現象、大規模機構、Giger風 | クライマックス、真実の開示 |
+
+---
+
 ## TODO
 
 - [x] 階段上・階段下のMidjourney Job IDを確認
