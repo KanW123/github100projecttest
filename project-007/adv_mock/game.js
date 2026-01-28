@@ -6,37 +6,60 @@ const state = {
     gamePhase: 'opening' // 'opening', 'explore', 'ending'
 };
 
+// 画像パス設定
+const images = {
+    // 新規生成画像
+    '冒頭の夢': 'images/冒頭の夢.png',
+    '博士の妻': 'images/博士の妻.png',
+    '博士の部屋': 'images/博士の部屋.png',
+    '老婆の部屋': 'images/老婆の部屋.png',
+    // 既存画像（project-007/assets/images/）
+    '廊下': '../assets/images/廊下.png',
+    'バー': '../assets/images/バー.png',
+    '魚屋': '../assets/images/魚屋.png',
+    '階段下': '../assets/images/階段下.png',
+    '階段上': '../assets/images/階段上.png',
+    // フォールバック
+    'default': 'images/冒頭の夢.png'
+};
+
 // 場所データ
 const locations = {
     '廊下': {
         description: '薄暗い廊下。蒸気が立ち込めている。\n服が濡れている。夢...？',
         connections: ['バー', '階段下', '魚屋'],
-        character: null
+        character: null,
+        image: '廊下'
     },
     'バー': {
         description: '水槽のある薄暗いバー。\nカウンターにトゲだらけの男がいる。',
         connections: ['廊下'],
-        character: 'マスター'
+        character: 'マスター',
+        image: 'バー'
     },
     '階段下': {
         description: '上へ続く階段。蒸気パイプが壁を這っている。',
         connections: ['廊下', '階段上'],
-        character: null
+        character: null,
+        image: '階段下'
     },
     '階段上': {
         description: '階段の上。奥に薄明かりが見える。',
         connections: ['階段下', '老婆の部屋'],
-        character: null
+        character: null,
+        image: '階段上'
     },
     '老婆の部屋': {
         description: '狭い部屋。\n背中から蒸気パイプが生えた老婆がいる。\n片目が——時計の文字盤になっている。',
         connections: ['階段上'],
-        character: '老婆'
+        character: '老婆',
+        image: '老婆の部屋'
     },
     '魚屋': {
         description: '魚の並ぶ店。機械の腕を持つ店主がいる。',
         connections: ['廊下'],
-        character: '魚屋'
+        character: '魚屋',
+        image: '魚屋'
     }
 };
 
@@ -44,26 +67,32 @@ const locations = {
 const openingSequence = [
     {
         text: `水の中にいる。\n\n息ができない。`,
+        image: '冒頭の夢',
         choices: [{ text: '...', next: 1 }]
     },
     {
         text: `見下ろすと、巨大な時計仕掛けが見える。\n\nそして——無数の人影が浮かんでいる。`,
+        image: '冒頭の夢',
         choices: [{ text: '...', next: 2 }]
     },
     {
         text: `全員、同じ顔をしている。\n\n俺と同じ顔？`,
+        image: '冒頭の夢',
         choices: [{ text: '...', next: 3 }]
     },
     {
         text: `——\n\n\n目を開ける。\n\n薄暗い廊下。蒸気が立ち込めている。\n服が濡れている。`,
+        image: '廊下',
         choices: [{ text: '...', next: 4 }]
     },
     {
         text: `手に何か握っている。\n\n古い写真。若い女性が写っている。\n\n誰だ？`,
+        image: '廊下',
         choices: [{ text: '...', next: 5 }]
     },
     {
         text: `わからない。でも——\n\n「この人を探さなきゃ」\n\nなぜかそう思った。`,
+        image: '廊下',
         choices: [{ text: '探し始める', next: 'start_explore' }]
     }
 ];
@@ -155,7 +184,8 @@ const conversations = {
                 locations['博士の部屋'] = {
                     description: '時計だらけの部屋。\n\n壁に——人が埋め込まれている。',
                     connections: ['老婆の部屋'],
-                    character: '博士'
+                    character: '博士',
+                    image: '博士の部屋'
                 };
             }
         }
@@ -164,6 +194,7 @@ const conversations = {
         {
             condition: () => true,
             text: `女性の上半身。\n肩からケーブルが花びらのように広がっている。\n胸には回転するレンズ。頭部は開いていて、回路が光っている。\n\n写真の女だ。\n\n博士「来たか」\n\n白衣の男が振り返る。\n\n博士「お前が探していた女だ」`,
+            image: '博士の妻',
             choices: [
                 { text: 'これが......？', next: 1 },
                 { text: '何をした', next: 2 }
@@ -171,14 +202,17 @@ const conversations = {
         },
         {
             text: `博士「妻だ」\n\n博士「時間を守る力を持っていた。この街の時間を」\n\n博士「5年前、俺の実験のせいでこうなった」`,
+            image: '博士の妻',
             choices: [{ text: '...', next: 3 }]
         },
         {
             text: `博士「俺がこうしたんじゃない。俺の実験の——失敗だ」\n\n博士「妻は時間を守る力を持っていた。その力が暴走した」`,
+            image: '博士の妻',
             choices: [{ text: '...', next: 3 }]
         },
         {
             text: `博士「だから、時間を巻き戻す。妻がこうなる前に」\n\n博士「——お前も同じだ」`,
+            image: '博士の部屋',
             choices: [
                 { text: '俺も？', next: 4 },
                 { text: '俺は誰なんだ', next: 4 }
@@ -186,19 +220,23 @@ const conversations = {
         },
         {
             text: `博士「お前は何度も来る。時間を巻き戻すたびに」\n\n博士「妻を探して、ここに来て、俺と話して——」\n\n博士「そして消える。また巻き戻される」`,
+            image: '博士の部屋',
             choices: [{ text: '俺は誰なんだ', next: 5 }]
         },
         {
             text: `博士「お前は俺が作った」\n\n博士「妻の記憶から」`,
+            image: '博士の妻',
             choices: [{ text: '...', next: 6 }],
             onFinish: () => setFlag('knowsTruth')
         },
         {
             text: `博士「妻が最後に想っていた——『自分を助けに来てくれる誰か』」\n\n博士「その『誰か』を、俺は形にした」\n\n博士「それがお前だ」`,
+            image: '博士の妻',
             choices: [{ text: '...', next: 7 }]
         },
         {
             text: `博士「お前には妻を探す衝動がある」\n\n博士「でも妻は既にこうなってる」\n\n博士「時間を巻き戻せば、妻は元に戻る」\n\n博士「お前は——消える」`,
+            image: '博士の妻',
             choices: [
                 { text: '巻き戻せ', next: 'ending_dawn' },
                 { text: 'やめろ', next: 'ending_eternal' },
@@ -207,6 +245,7 @@ const conversations = {
         },
         {
             text: `博士「ある」\n\n博士「お前が妻の代わりになれ」\n\n博士「時間を守る力を、お前が引き継ぐ」\n\n博士「妻は解放される。お前はここに——永遠に繋がれる」`,
+            image: '博士の妻',
             choices: [
                 { text: '俺がなる', next: 'ending_clockkeeper' },
                 { text: '......やはり巻き戻せ', next: 'ending_dawn' }
@@ -219,14 +258,17 @@ const conversations = {
 const endings = {
     'ending_dawn': {
         title: '夜明け',
+        image: '冒頭の夢',
         text: `博士「......わかった」\n\n装置が動き始める。時計が逆回転する。\n\n自分の体が薄くなっていくのがわかる。\n\n壁の女が——妻が——目を開けた。\n\n「ありがとう」\n\n誰かの声が聞こえた。\n\n——\n\n\nお前は消えた。\n妻は救われた。\nこの街は——なかったことになった。\n\n\n【エンディング: 夜明け】`
     },
     'ending_eternal': {
         title: '永遠の住人',
+        image: '廊下',
         text: `博士「......そうか」\n\n博士「なら、また来い。何度でも」\n\n博士「お前は忘れて、また写真を持って、また来る」\n\n博士「俺は待ってる」\n\n——\n\n目を開ける。\n薄暗い廊下。蒸気が立ち込めている。\n手には古い写真。\n\n「この人を探さなきゃ」\n\n\nお前は永遠にこの街を彷徨う。\n何度も、何度も。\n\n\n【エンディング: 永遠の住人】`
     },
     'ending_clockkeeper': {
         title: '時計守り',
+        image: '博士の妻',
         text: `博士「......すまない」\n\nケーブルが伸びてくる。\n\n壁に引き寄せられる。体が固定される。\n\n壁の女が——妻が——ゆっくりと落ちてきた。\n\n博士「妻を......頼む」\n\n視界がぼやける。時計の音だけが聞こえる。\n\n——\n\n\nお前は街の時間を守る者になった。\n永遠に。\n\n\n【エンディング: 時計守り】`
     }
 };
@@ -237,6 +279,29 @@ const textDisplayEl = document.getElementById('text-display');
 const choicesEl = document.getElementById('choices');
 const knowledgeEl = document.getElementById('knowledge-display');
 const movingOverlay = document.getElementById('moving-overlay');
+const sceneImageEl = document.getElementById('scene-image');
+
+// 画像切り替え
+function setImage(imageName, fade = true) {
+    const path = images[imageName] || images['default'];
+
+    if (fade) {
+        sceneImageEl.classList.add('fade');
+        setTimeout(() => {
+            sceneImageEl.src = path;
+            sceneImageEl.onload = () => {
+                sceneImageEl.classList.remove('fade');
+            };
+            // 画像ロード失敗時もフェード解除
+            sceneImageEl.onerror = () => {
+                sceneImageEl.src = images['default'];
+                sceneImageEl.classList.remove('fade');
+            };
+        }, 300);
+    } else {
+        sceneImageEl.src = path;
+    }
+}
 
 // フラグ管理
 function setFlag(flag) {
@@ -269,6 +334,11 @@ function showOpening(step = 0) {
     const scene = openingSequence[step];
     textDisplayEl.innerHTML = scene.text.replace(/\n/g, '<br>');
 
+    // 画像切り替え
+    if (scene.image) {
+        setImage(scene.image, step > 0);
+    }
+
     choicesEl.innerHTML = '';
     scene.choices.forEach(choice => {
         const btn = document.createElement('button');
@@ -297,6 +367,11 @@ function showLocation() {
     const loc = locations[state.location];
     locationNameEl.textContent = state.location;
     textDisplayEl.innerHTML = loc.description.replace(/\n/g, '<br>');
+
+    // 画像切り替え
+    if (loc.image) {
+        setImage(loc.image);
+    }
 
     choicesEl.innerHTML = '';
 
@@ -364,6 +439,11 @@ function showConversationStep(character, stepIndex) {
 
     textDisplayEl.innerHTML = step.text.replace(/\n/g, '<br>');
 
+    // 会話中の画像切り替え（指定がある場合）
+    if (step.image) {
+        setImage(step.image);
+    }
+
     choicesEl.innerHTML = '';
     step.choices.forEach(choice => {
         const btn = document.createElement('button');
@@ -391,6 +471,11 @@ function showEnding(endingKey) {
     const ending = endings[endingKey];
     locationNameEl.textContent = ending.title;
     textDisplayEl.innerHTML = ending.text.replace(/\n/g, '<br>');
+
+    // エンディング画像
+    if (ending.image) {
+        setImage(ending.image);
+    }
 
     choicesEl.innerHTML = '';
     const btn = document.createElement('button');
